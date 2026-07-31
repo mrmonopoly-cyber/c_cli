@@ -11,7 +11,7 @@
 struct CCliUserArgs{
     bool verbose;
     bool help;
-    char* path;
+    const char* path;
 };
 
 CCLI_PARSE_BOOL_FLAG_FUN_TEMPLATE(verbose)
@@ -22,8 +22,16 @@ static inline CCliActionReturn CCLI_PARSE_FLAG_FUN_NAME(path)(
         const int argc,
         char** argv)
 {
-    (*i)++;
-    if(*i >= argc) return CCliActionMissingInput;
-    args->path = argv[*i];
+    const char* path_arg = c_cli_next_arg(argc, argv, i);
+
+    if (!path_arg)
+    {
+        return CCliActionMissingInput;
+    }
+    else
+    {
+        args->path = path_arg;
+    }
+
     return CCliActionOK;
 }

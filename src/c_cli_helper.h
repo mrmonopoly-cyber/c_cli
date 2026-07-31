@@ -53,6 +53,20 @@ static bool CCLI_PARSE_FLAG_FUN_NAME(NAME)(             \
     return CCliActionOK;                                \
 }
 
+static inline const char* c_cli_next_arg(
+        const int argc,
+        char** argv,
+        int* const restrict i)
+{
+    (*i)++;
+    if((*i) < argc)
+    {
+        return argv[*i];
+    }
+
+    return NULL;
+}
+
 static void c_cli_print_help_to(const char* const prog_name, FILE* const restrict file);
 
 static inline void c_cli_print_help(const char* const prog_name)
