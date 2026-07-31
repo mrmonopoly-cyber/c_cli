@@ -20,6 +20,7 @@
  *           void (*) (
  *              CCliUserArgs* const restrict args,
  *              size_t* const restrict i,
+ *              const int argc 
  *              const char ** argv
  *              )
  *   (macros for easy cases are already defined in c_cli_helper.h)
