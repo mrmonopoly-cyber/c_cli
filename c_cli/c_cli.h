@@ -11,28 +11,59 @@
 #include "c_cli_defs.h"
 #include "c_cli_utils.h"
 
+static CCLI_PARSER_DECLARE(verbose);
+static CCLI_PARSER_DECLARE(help);
+
+static const CCliArgDef __c_cli_base_flags[] =
+{
+    { //--verbose, -v
+        .f_long = CCLI_LONG_FLAG(verbose),
+        .f_short = CCLI_SHORT_FLAG(v),
+        .f_args = CCLI_NO_ARG,
+        .f_description = "print verbose output",
+        .f_parser = CCLI_PARSER_NAME(verbose),
+    },
+
+    {//--help, -h
+        .f_long = CCLI_LONG_FLAG(help),
+        .f_short = CCLI_SHORT_FLAG(h),
+        .f_args = CCLI_NO_ARG,
+        .f_description = "print this help",
+        .f_parser = CCLI_PARSER_NAME(help),
+    },
+};
 
 struct __CliAlignSizes{
     size_t s_to_l;
     size_t l_to_d;
 };
-static struct __CliAlignSizes __c_cli_find_correct_align(
-        const CCliArgDef* const restrict defs, const size_t n_defs);
+static void __c_cli_find_correct_align(
+        struct __CliAlignSizes* align,
+        const CCliArgDef* const restrict defs,
+        const size_t n_defs);
 
 static size_t __c_cli_fprint_all_args(
         FILE* const restrict out,
         const CCliArgSpec* const restrict f_args);
 
+static void __c_cli_print_defs_help(
+        const CCliArgDef* const restrict defs,
+        const size_t n_defs,
+        struct __CliAlignSizes* aligns,
+        FILE* const restrict out
+        );
 
 static inline void c_cli_print_help_full(
         const CCliArgDef* const restrict defs,
         const size_t n_defs,
-        const char* const argv_0, FILE* const restrict out)
+        const char* const argv_0,
+        FILE* const restrict out)
 {
-    const size_t n_chars_in_tabs = 8;
     const size_t argv_0_len = strlen(argv_0);
     const char* prog_name = &argv_0[argv_0_len-1];
-    const CCliArgDef* def;
+    const size_t n_base_defs = sizeof(__c_cli_base_flags)/sizeof(__c_cli_base_flags[0]);
+
+    struct __CliAlignSizes aligns = {0};
 
     while(prog_name > argv_0 && *prog_name != CCLI_SLAH)
     {
@@ -41,38 +72,21 @@ static inline void c_cli_print_help_full(
 
     if(*prog_name == CCLI_SLAH) prog_name++;
 
-    struct __CliAlignSizes aligns = __c_cli_find_correct_align(defs, n_defs);
+    __c_cli_find_correct_align(&aligns, defs, n_defs);
+    __c_cli_find_correct_align(&aligns, __c_cli_base_flags, n_base_defs);
 
     fprintf(out, "usge %s [opts]:" CCLI_END_LINE, prog_name);
 
-    for(size_t i=0; i<n_defs; i++)
-    {
-        size_t written=0, to_write;
-        to_write = n_chars_in_tabs * aligns.s_to_l;
-        def = &defs[i];
 
-        fprintf(out, CCLI_2_TAB);
+    //user defs
+    __c_cli_print_defs_help(defs, n_defs, &aligns, out);
 
-        written += fprintf(out, "%s ", def->f_long);                        // --help
-        written += __c_cli_fprint_all_args(out, def->f_args);               // [...]
-
-        while(written < to_write)
-        {
-            written += fprintf(out, " ");                                   // long padding
-        }
-
-        written =0;
-        fprintf(out, CCLI_1_TAB);
-        written += fprintf(out, "%s ", def->f_short);                       // -h
-        written += __c_cli_fprint_all_args(out, def->f_args);               // [...]
-        while(written < to_write)
-        {
-            written += fprintf(out, " ");                                   // short padding
-        }
-
-        fprintf(out, CCLI_1_TAB"%s", def->f_description);                   // "description"
-        fprintf(out, CCLI_END_LINE);
-    }
+    //base defs
+    __c_cli_print_defs_help(
+            __c_cli_base_flags,
+            sizeof(__c_cli_base_flags)/sizeof(__c_cli_base_flags[0]),
+            &aligns,
+            out);
 }
 
 static inline void c_cli_print_help(
@@ -83,6 +97,20 @@ static inline void c_cli_print_help(
     c_cli_print_help_full(defs, n_defs, argv_0, stderr);
 }
 
+typedef enum {
+    CCliCheckInputDefsRet_Found =0,
+    CCliCheckInputDefsRet_NotFound,
+    CCliCheckInputDefsRet_Error,
+}CCliCheckInputDefsRet;
+
+static CCliCheckInputDefsRet __c_cli_check_input_defs(
+        const char* const restrict input,
+        const CCliArgDef* defs,
+        const size_t n_defs,
+        struct CCliUserArgs* const restrict args,
+        CCliParseCtx* const restrict ctx
+        );
+
 static int c_cli_parse(
         const CCliArgDef* defs,
         const size_t n_defs,
@@ -92,56 +120,37 @@ static int c_cli_parse(
         CCliDefaultSetter def_set)
 {
     const char* input;
-    const CCliArgDef* user_def;
+    const size_t n_base_defs = sizeof(__c_cli_base_flags)/sizeof(__c_cli_base_flags[0]);
     CCliParseCtx ctx = {
         .i=NULL,
         .argc = argc,
         .argv = argv,
     };
 
-    CCliActionReturn act_res = CCliActionOK;
-
     for(int i=0;i <argc; i++)
     {
         ctx.i = &i;
         input = argv[i];
 
-        for(size_t j=0; j<n_defs; j++)
+        switch (__c_cli_check_input_defs(input, defs, n_defs, args, &ctx))
         {
-            user_def = &defs[j];
-
-            if(!strcmp(user_def->f_long, input) || !strcmp(user_def->f_short, input))
-            {
-                act_res = user_def->f_parser(args, &ctx);
-
-                if(act_res == CCliActionOK)
-                {
-                    break;
-                }
-                switch (act_res)
-                {
-                    case CCliActionOK:
-                        assert(0 && "unreachable");
-                        break;
-                    case CCliActionMissingInput:
-                        {
-                            fprintf(stderr, "missing args for flag %s OR %s, expected: ",
-                                    user_def->f_long, user_def->f_short);
-                        }
-                        break;
-                    case CCliActionInvalidInput:
-                        {
-                            fprintf(stderr, "invalid arg %s for flag %s OR %s, expected: ",
-                                    argv[i], user_def->f_long, user_def->f_short);
-                        }
-                        break;
-                }
-
-                __c_cli_fprint_all_args(stderr, user_def->f_args);
-                fprintf(stderr, "\n");
-                return -1;
-            }
+            case CCliCheckInputDefsRet_Found: continue;
+            case CCliCheckInputDefsRet_NotFound: break;
+            case CCliCheckInputDefsRet_Error: return -2;
         }
+
+        switch(__c_cli_check_input_defs(input, __c_cli_base_flags, n_base_defs, args, &ctx))
+        {
+            case CCliCheckInputDefsRet_Found: continue;
+            case CCliCheckInputDefsRet_NotFound: break;
+            case CCliCheckInputDefsRet_Error: return -2;
+        }
+    }
+
+    if(args->base.help)
+    {
+        c_cli_print_help(defs, n_defs, argv[0]);
+        return -1;
     }
 
     for(size_t i=0; i<sizeof(*args); i++)
@@ -154,6 +163,7 @@ static int c_cli_parse(
 
     if(def_set)
     {
+        printf("c_cli: no arguments provide. Applying default values\n");
         def_set(args);
         return 0;
     }
@@ -242,14 +252,12 @@ static inline size_t __c_cli_sprint_all_args(
     return __c_cli_write_all_args(f_args, out, __c_cli_s_writer);
 }
 
-static struct __CliAlignSizes __c_cli_find_correct_align(
+static void __c_cli_find_correct_align(
+        struct __CliAlignSizes* align,
         const CCliArgDef* const restrict defs, const size_t n_defs)
 {
     static char temp_buffer[256] = {0};
 
-    const size_t n_chars_in_tabs = 8;
-
-    struct __CliAlignSizes res= {0};
     const CCliArgSpec *args;
     size_t args_len, f_len, tot_len, n_tabs;
 
@@ -261,14 +269,118 @@ static struct __CliAlignSizes __c_cli_find_correct_align(
 
         f_len = strlen(defs[i].f_short);
         tot_len = args_len + f_len;
-        n_tabs = (tot_len / n_chars_in_tabs) + ((tot_len % n_chars_in_tabs) > 0);
-        if(n_tabs > res.l_to_d) res.s_to_l = n_tabs;
+        n_tabs = (tot_len / CCLI_CHARS_IN_TAB) + ((tot_len % CCLI_CHARS_IN_TAB) > 0);
+        if(n_tabs > align->l_to_d) align->s_to_l = n_tabs;
 
         f_len = strlen(defs[i].f_long);
         tot_len = args_len + f_len;
-        n_tabs = (tot_len / n_chars_in_tabs) + ((tot_len % n_chars_in_tabs) > 0);
-        if(n_tabs > res.l_to_d) res.l_to_d = n_tabs;
+        n_tabs = (tot_len / CCLI_CHARS_IN_TAB) + ((tot_len % CCLI_CHARS_IN_TAB) > 0);
+        if(n_tabs > align->l_to_d) align->l_to_d = n_tabs;
     }
 
-    return res;
+}
+
+static CCLI_PARSER_DECLARE_FULL(verbose, args, ctx)
+{
+    (void) ctx;
+    args->base.verbose = true;
+    return CCliActionOK;
+}
+
+static CCLI_PARSER_DECLARE_FULL(help, args, ctx)
+{
+    (void) ctx;
+    args->base.help= true;
+    return CCliActionOK;
+}
+
+static void __c_cli_print_defs_help(
+        const CCliArgDef* const restrict defs,
+        const size_t n_defs,
+        struct __CliAlignSizes* aligns,
+        FILE* const restrict out
+        )
+{
+    const CCliArgDef* def;
+
+    for(size_t i=0; i<n_defs; i++)
+    {
+        size_t written=0, to_write;
+        to_write = CCLI_CHARS_IN_TAB * aligns->s_to_l;
+        def = &defs[i];
+
+        fprintf(out, CCLI_2_TAB);
+
+        written += fprintf(out, "%s ", def->f_long);                        // --help
+        written += __c_cli_fprint_all_args(out, def->f_args);               // [...]
+
+        while(written < to_write)
+        {
+            written += fprintf(out, " ");                                   // long padding
+        }
+
+        written =0;
+        to_write = CCLI_CHARS_IN_TAB * aligns->l_to_d;
+        fprintf(out, CCLI_1_TAB);
+        written += fprintf(out, "%s ", def->f_short);                       // -h
+        written += __c_cli_fprint_all_args(out, def->f_args);               // [...]
+        while(written < to_write)
+        {
+            written += fprintf(out, " ");                                   // short padding
+        }
+
+        fprintf(out, CCLI_1_TAB"%s", def->f_description);                   // "description"
+        fprintf(out, CCLI_END_LINE);
+    }
+}
+
+static CCliCheckInputDefsRet __c_cli_check_input_defs(
+        const char* const restrict input,
+        const CCliArgDef* defs,
+        const size_t n_defs,
+        struct CCliUserArgs* const restrict args,
+        CCliParseCtx* const restrict ctx
+        )
+{
+    const CCliArgDef* user_def;
+    CCliActionReturn act_res = CCliActionOK;
+
+    for(size_t j=0; j<n_defs; j++)
+    {
+        user_def = &defs[j];
+
+        if(!strcmp(user_def->f_long, input) || !strcmp(user_def->f_short, input))
+        {
+            act_res = user_def->f_parser(args, ctx);
+
+            if(act_res == CCliActionOK)
+            {
+                return CCliCheckInputDefsRet_Found;
+            }
+            switch (act_res)
+            {
+                case CCliActionOK:
+                    assert(0 && "unreachable");
+                    break;
+                case CCliActionMissingInput:
+                    {
+                        fprintf(stderr, "missing args for flag %s OR %s, expected: ",
+                                user_def->f_long, user_def->f_short);
+                    }
+                    break;
+                case CCliActionInvalidInput:
+                    {
+                        fprintf(stderr, "invalid arg %s for flag %s OR %s, expected: ",
+                                ctx->argv[*ctx->i], user_def->f_long, user_def->f_short);
+                    }
+                    break;
+            }
+
+            __c_cli_fprint_all_args(stderr, user_def->f_args);
+            fprintf(stderr, "\n");
+            return CCliCheckInputDefsRet_Error;
+        }
+    }
+
+    return CCliCheckInputDefsRet_NotFound;
 }

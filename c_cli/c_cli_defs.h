@@ -1,5 +1,11 @@
 #pragma once
 
+#include <stdbool.h>
+
+#ifndef CCLI_CHARS_IN_TAB
+#define CCLI_CHARS_IN_TAB 8
+#endif // !CCLI_CHARS_IN_TAB
+
 #ifndef CCLI_MAX_NUM_ARGS
 #define CCLI_MAX_NUM_ARGS 8
 #endif // !CCLI_MAX_NUM_ARGS
@@ -46,6 +52,10 @@ typedef enum
 }CCliActionReturn;
 
 struct CCliUserArgs;
+typedef struct{
+    bool verbose;
+    bool help;
+}CCliBaseUserArgs;
 
 typedef CCliActionReturn (*CCliParser)(
         struct CCliUserArgs* const restrict args,
