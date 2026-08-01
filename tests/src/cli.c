@@ -11,24 +11,24 @@ CLI_PREFIX CCLI_PARSER_DECLARE(test);
 static const CCliArgDef cli_flags[] =
 {
     { //--verbose, -v
-        .f_long = "--verbose",
-        .f_short = "-v",
+        .f_long = CCLI_LONG_FLAG(verbose),
+        .f_short = CCLI_SHORT_FLAG(v),
         .f_args = CCLI_NO_ARG,
         .f_description = "print verbose output",
         .f_parser = CCLI_PARSER_NAME(verbose),
     },
 
     {//--help, -h
-        .f_long = "--help",
-        .f_short = "-h",
+        .f_long = CCLI_LONG_FLAG(help),
+        .f_short = CCLI_SHORT_FLAG(h),
         .f_args = CCLI_NO_ARG,
         .f_description = "print this help",
         .f_parser = CCLI_PARSER_NAME(__ignore_flag),
     },
 
     {//--file [path], -f [path]
-        .f_long = "--path",
-        .f_short = "-p",
+        .f_long = CCLI_LONG_FLAG(path),
+        .f_short = CCLI_SHORT_FLAG(p),
         .f_args =
         {
             CCLI_NEW_ARG("path", CCliArgStr),
@@ -38,8 +38,8 @@ static const CCliArgDef cli_flags[] =
     },
 
     {//--test [name, arg], -t [name, arg]
-        .f_long = "--test",
-        .f_short = "-t",
+        .f_long = CCLI_LONG_FLAG(test),
+        .f_short = CCLI_SHORT_FLAG(t),
         .f_args =
         {
             CCLI_NEW_ARG("name", CCliArgStr),
