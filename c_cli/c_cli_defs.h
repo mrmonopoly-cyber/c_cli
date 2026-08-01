@@ -58,11 +58,9 @@ typedef struct{
 
 typedef struct{
     const char* f_long;
-    const char* l_pad;
     const char* f_short;
-    const char* s_pad;
-    const CCliArgSpec f_args[CCLI_MAX_NUM_ARGS]; //series of strings devided by ' '
-    char* f_description; //series of strings devided by ' '
+    const CCliArgSpec f_args[CCLI_MAX_NUM_ARGS];
+    char* f_description;
     const CCliParser f_parser;
 }CCliArgDef;
 

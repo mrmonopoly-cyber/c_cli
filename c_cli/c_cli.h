@@ -1,6 +1,8 @@
 #pragma once
 
+#include <stdarg.h>
 #include <assert.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -9,15 +11,25 @@
 #include "c_cli_defs.h"
 #include "c_cli_utils.h"
 
-static inline void __c_cli_print_all_args(
+
+struct __CliAlignSizes{
+    size_t s_to_l;
+    size_t l_to_d;
+};
+static struct __CliAlignSizes __c_cli_find_correct_align(
+        const CCliArgDef* const restrict defs, const size_t n_defs);
+
+static size_t __c_cli_fprint_all_args(
         FILE* const restrict out,
         const CCliArgSpec* const restrict f_args);
+
 
 static inline void c_cli_print_help_full(
         const CCliArgDef* const restrict defs,
         const size_t n_defs,
         const char* const argv_0, FILE* const restrict out)
 {
+    const size_t n_chars_in_tabs = 8;
     const size_t argv_0_len = strlen(argv_0);
     const char* prog_name = &argv_0[argv_0_len-1];
     const CCliArgDef* def;
@@ -29,19 +41,36 @@ static inline void c_cli_print_help_full(
 
     if(*prog_name == CCLI_SLAH) prog_name++;
 
+    struct __CliAlignSizes aligns = __c_cli_find_correct_align(defs, n_defs);
 
     fprintf(out, "usge %s [opts]:" CCLI_END_LINE, prog_name);
 
     for(size_t i=0; i<n_defs; i++)
     {
+        size_t written=0, to_write;
+        to_write = n_chars_in_tabs * aligns.s_to_l;
         def = &defs[i];
-        fprintf(out, CCLI_2_TAB "%s ", def->f_long);             // --help
-        __c_cli_print_all_args(out, def->f_args);               // [...]
-        fprintf(out, "%s", def->l_pad);                         // long padding
-        fprintf(out, CCLI_1_TAB "%s ", def->f_short);            // -h
-        __c_cli_print_all_args(out, def->f_args);               // [...]
-        fprintf(out, "%s", def->s_pad);                         // short padding
-        fprintf(out, CCLI_1_TAB "%s", def->f_description);      // "description"
+
+        fprintf(out, CCLI_2_TAB);
+
+        written += fprintf(out, "%s ", def->f_long);                        // --help
+        written += __c_cli_fprint_all_args(out, def->f_args);               // [...]
+
+        while(written < to_write)
+        {
+            written += fprintf(out, " ");                                   // long padding
+        }
+
+        written =0;
+        fprintf(out, CCLI_1_TAB);
+        written += fprintf(out, "%s ", def->f_short);                       // -h
+        written += __c_cli_fprint_all_args(out, def->f_args);               // [...]
+        while(written < to_write)
+        {
+            written += fprintf(out, " ");                                   // short padding
+        }
+
+        fprintf(out, CCLI_1_TAB"%s", def->f_description);                   // "description"
         fprintf(out, CCLI_END_LINE);
     }
 }
@@ -107,7 +136,7 @@ static int c_cli_parse(
                         break;
                 }
 
-                __c_cli_print_all_args(stderr, user_def->f_args);
+                __c_cli_fprint_all_args(stderr, user_def->f_args);
                 fprintf(stderr, "\n");
                 return -1;
             }
@@ -128,12 +157,16 @@ static int c_cli_parse(
 }
 
 //C_CLI INTERNAL DEFS
-static inline void __c_cli_print_all_args(
-        FILE* const restrict out,
-        const CCliArgSpec* const restrict f_args)
+
+static size_t __c_cli_write_all_args(
+        const CCliArgSpec* const restrict f_args,
+        void* dst,
+        size_t (*writer)(void* dst, char* fmt, ...))
 {
     const CCliArgSpec* arg;
     bool empty = true;
+    size_t written=0;
+    
 
     for(size_t i=0; i<CCLI_MAX_NUM_ARGS; i++)
     {
@@ -143,22 +176,92 @@ static inline void __c_cli_print_all_args(
         {
             if(empty)
             {
-                fprintf(out, "[");
+                written += writer(dst, "[");
                 empty = false;
             }
 
             if(i>0)
             {
-                fprintf(out, ", ");
+                written += writer(dst, ", ");
             }
 
-            fprintf(out, "%s:%s", arg->name, c_cli_arg_type_to_str(arg->type));
+            written += writer(dst, "%s:%s", arg->name, c_cli_arg_type_to_str(arg->type));
         }
     }
 
     if(!empty)
     {
-        fprintf(out, "]");
+        written += writer(dst, "]");
     }
 
+    return written;
+}
+
+static size_t __c_cli_f_writer(void* f, char* fmt, ...)
+{
+    size_t res;
+    va_list vars;
+
+    va_start(vars, fmt);
+    res = vfprintf(f, fmt, vars);
+    va_end(vars);
+
+    return res;
+}
+
+static size_t __c_cli_s_writer(void* f, char* fmt, ...)
+{
+    size_t res;
+    va_list vars;
+
+    va_start(vars, fmt);
+    res = vsprintf(f, fmt, vars);
+    va_end(vars);
+
+    return res;
+}
+
+static size_t __c_cli_fprint_all_args(
+        FILE* const restrict out,
+        const CCliArgSpec* const restrict f_args)
+{
+    return __c_cli_write_all_args(f_args, out, __c_cli_f_writer);
+}
+
+static inline size_t __c_cli_sprint_all_args(
+        char* const restrict out,
+        const CCliArgSpec* const restrict f_args)
+{
+    return __c_cli_write_all_args(f_args, out, __c_cli_s_writer);
+}
+
+static struct __CliAlignSizes __c_cli_find_correct_align(
+        const CCliArgDef* const restrict defs, const size_t n_defs)
+{
+    static char temp_buffer[256] = {0};
+
+    const size_t n_chars_in_tabs = 8;
+
+    struct __CliAlignSizes res= {0};
+    const CCliArgSpec *args;
+    size_t args_len, f_len, tot_len, n_tabs;
+
+    for(size_t i=0; i<n_defs; i++)
+    {
+        args = defs[i].f_args;
+
+        args_len = __c_cli_write_all_args(args, temp_buffer, __c_cli_s_writer);
+
+        f_len = strlen(defs[i].f_short);
+        tot_len = args_len + f_len;
+        n_tabs = (tot_len / n_chars_in_tabs) + ((tot_len % n_chars_in_tabs) > 0);
+        if(n_tabs > res.l_to_d) res.s_to_l = n_tabs;
+
+        f_len = strlen(defs[i].f_long);
+        tot_len = args_len + f_len;
+        n_tabs = (tot_len / n_chars_in_tabs) + ((tot_len % n_chars_in_tabs) > 0);
+        if(n_tabs > res.l_to_d) res.l_to_d = n_tabs;
+    }
+
+    return res;
 }

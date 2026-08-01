@@ -12,49 +12,41 @@ static const CCliArgDef cli_flags[] =
 {
     { //--verbose, -v
         .f_long = "--verbose",
-        .l_pad = CCLI_2_TAB,
         .f_short = "-v",
-        .s_pad = CCLI_2_TAB,
-        .f_parser = CCLI_PARSER_NAME(verbose),
         .f_args = CCLI_NO_ARG,
         .f_description = "print verbose output",
+        .f_parser = CCLI_PARSER_NAME(verbose),
     },
 
     {//--help, -h
         .f_long = "--help",
-        .l_pad = CCLI_3_TAB,
         .f_short = "-h",
-        .s_pad = CCLI_2_TAB,
-        .f_parser = CCLI_PARSER_NAME(__ignore_flag),
         .f_args = CCLI_NO_ARG,
         .f_description = "print this help",
+        .f_parser = CCLI_PARSER_NAME(__ignore_flag),
     },
 
     {//--file [path], -f [path]
         .f_long = "--path",
-        .l_pad = CCLI_1_TAB,
         .f_short = "-p",
-        .s_pad = CCLI_1_TAB,
-        .f_parser = CCLI_PARSER_NAME(path),
         .f_args =
         {
             CCLI_NEW_ARG("path", CCliArgStr),
         },
         .f_description = "use file from path",
+        .f_parser = CCLI_PARSER_NAME(path),
     },
 
     {//--test [name, arg], -t [name, arg]
         .f_long = "--test",
-        .l_pad = CCLI_NO_TAB,
         .f_short = "-t",
-        .s_pad = CCLI_NO_TAB,
-        .f_parser = CCLI_PARSER_NAME(test),
         .f_args =
         {
             CCLI_NEW_ARG("name", CCliArgStr),
             CCLI_NEW_ARG("arg", CCliArgU8)
         },
         .f_description = "run the test [name] with arg [arg]",
+        .f_parser = CCLI_PARSER_NAME(test),
     },
 };
 
