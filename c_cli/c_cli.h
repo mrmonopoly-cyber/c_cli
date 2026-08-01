@@ -13,6 +13,10 @@
 //macros
 #define CCLI_STRINGIFY(STR) #STR
 
+#ifndef CCLI_PREFIX
+#define CCLI_PREFIX static inline
+#endif // !CCLI_PREFIX
+
 #ifndef CCLI_MAX_LEN_PROG_NAME
 #define CCLI_MAX_LEN_PROG_NAME 64
 #endif // !CCLI_MAX_LEN_PROG_NAME
@@ -147,29 +151,47 @@ static bool c_cli_parse(
         CCliDefaultSetter def_set);
 
 //args
-static inline const char* c_cli_arg_type_to_str(const CCliArgType arg_type);
-static inline const char* c_cli_str_arg_to_str(const char* const restrict arg);
+CCLI_PREFIX const char* c_cli_arg_type_to_str(const CCliArgType arg_type);
+CCLI_PREFIX const char* c_cli_str_arg_to_str(const char* const restrict arg);
 
 //pretty printers
-static inline const char* c_cli_bool_to_str(const bool val);
-static inline const char* c_cli_str_arg_to_str(const char* const restrict arg);
+CCLI_PREFIX const char* c_cli_bool_to_str(const bool val);
+CCLI_PREFIX const char* c_cli_str_arg_to_str(const char* const restrict arg);
 
 //parsing general utility functions
-static inline const char* c_cli_next_arg(void* const restrict ctx);
+CCLI_PREFIX const char* c_cli_next_arg(void* const restrict ctx);
 
 //parsing specialized utility functions
-static CCliActionReturn c_cli_parse_nex_arg_str(void* const restrict ctx, const char** out);
-static CCliActionReturn c_cli_parse_nex_arg_dig(void* const restrict ctx, size_t* const restrict out);
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_nex_arg_str(void* const restrict ctx, const char** out);
 
-CCLI_PARSE_NEXT_ARG_DECLARE(uint8_t);
-CCLI_PARSE_NEXT_ARG_DECLARE(uint16_t);
-CCLI_PARSE_NEXT_ARG_DECLARE(uint32_t);
-CCLI_PARSE_NEXT_ARG_DECLARE(uint64_t);
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_nex_arg_dig(void* const restrict ctx, size_t* const restrict out);
 
-CCLI_PARSE_NEXT_ARG_DECLARE(int8_t);
-CCLI_PARSE_NEXT_ARG_DECLARE(int16_t);
-CCLI_PARSE_NEXT_ARG_DECLARE(int32_t);
-CCLI_PARSE_NEXT_ARG_DECLARE(int64_t);
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_next_arg_uint8_t(void* const restrict ctx, uint8_t* const restrict out);
+
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_next_arg_uint16_t(void* const restrict ctx, uint16_t* const restrict out);
+
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_next_arg_uint32_t(void* const restrict ctx, uint32_t* const restrict out);
+
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_next_arg_uint64_t(void* const restrict ctx, uint64_t* const restrict out);
+
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_next_arg_int8_t(void* const restrict ctx, int8_t* const restrict out);
+
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_next_arg_int16_t(void* const restrict ctx, int16_t* const restrict out);
+
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_next_arg_int32_t(void* const restrict ctx, int32_t* const restrict out);
+
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_next_arg_int64_t(void* const restrict ctx, int64_t* const restrict out);
+
 
 //C_CLI INTERNAL DEFS ============================================================================
 
@@ -195,29 +217,29 @@ typedef struct{
 
 //declarations
 
-static void __c_cli_find_correct_align(
+CCLI_PREFIX void __c_cli_find_correct_align(
         struct __CCliAlignSizes* align,
         const CCliArgDef* const restrict defs,
         const size_t n_defs);
 
-static size_t __c_cli_fprint_all_args(
+CCLI_PREFIX size_t __c_cli_fprint_all_args(
         FILE* const restrict out,
         const CCliArgSpec* const restrict f_args);
 
-static void __c_cli_print_defs_help(
+CCLI_PREFIX void __c_cli_print_defs_help(
         const CCliArgDef* const restrict defs,
         const size_t n_defs,
         struct __CCliAlignSizes* aligns,
         FILE* const restrict out
         );
 
-static inline void __c_cli_print_help_full(
+CCLI_PREFIX void __c_cli_print_help_full(
         const CCliArgDef* const restrict defs,
         const size_t n_defs,
         const char* const argv_0,
         FILE* const restrict out);
 
-static CCliCheckInputDefsRet __c_cli_check_input_defs(
+CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
         const char* const restrict input,
         const CCliArgDef* defs,
         const size_t n_defs,
@@ -225,46 +247,44 @@ static CCliCheckInputDefsRet __c_cli_check_input_defs(
         CCliParseCtx* const restrict ctx
         );
 
-static const char* __c_cli_get_prog_name(const char* const restrict argv_0);
+CCLI_PREFIX const char* __c_cli_get_prog_name(const char* const restrict argv_0);
 
-static inline __CCliBaseDefInfo __c_cli_get_base_flags(void);
+CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void);
 
-static size_t __c_cli_f_writer(void* f, char* fmt, ...);
-static size_t __c_cli_s_writer(void* f, char* fmt, ...);
+CCLI_PREFIX size_t __c_cli_f_writer(void* f, char* fmt, ...);
+CCLI_PREFIX size_t __c_cli_s_writer(void* f, char* fmt, ...);
 
-static size_t __c_cli_fprint_all_args(
+CCLI_PREFIX size_t __c_cli_fprint_all_args(
         FILE* const restrict out,
         const CCliArgSpec* const restrict f_args);
 
-static inline size_t __c_cli_sprint_all_args(
+CCLI_PREFIX size_t __c_cli_sprint_all_args(
         char* const restrict out,
         const CCliArgSpec* const restrict f_args);
 
-static void __c_cli_find_correct_align(
+CCLI_PREFIX void __c_cli_find_correct_align(
         struct __CCliAlignSizes* align,
         const CCliArgDef* const restrict defs, const size_t n_defs);
 
-static void __c_cli_print_defs_help(
+CCLI_PREFIX void __c_cli_print_defs_help(
         const CCliArgDef* const restrict defs,
         const size_t n_defs,
         struct __CCliAlignSizes* aligns,
         FILE* const restrict out);
 
-static CCliCheckInputDefsRet __c_cli_check_input_defs(
+CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
         const char* const restrict input,
         const CCliArgDef* defs,
         const size_t n_defs,
         struct CCliUserArgs* const restrict args,
         CCliParseCtx* const restrict ctx);
 
-static CCLI_PARSER_DECLARE_FULL(verbose, args, ctx);
-static CCLI_PARSER_DECLARE_FULL(help, args, ctx);
+CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(verbose, args, ctx);
+CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(help, args, ctx);
 
 //implementations
 
-
-
-static inline void __c_cli_print_help_full(
+CCLI_PREFIX void __c_cli_print_help_full(
         const CCliArgDef* const restrict defs,
         const size_t n_defs,
         const char* const argv_0,
@@ -286,7 +306,7 @@ static inline void __c_cli_print_help_full(
     __c_cli_print_defs_help(base_flags.addr, base_flags.size, &aligns, out);
 }
 
-static size_t __c_cli_write_all_args(
+CCLI_PREFIX size_t __c_cli_write_all_args(
         const CCliArgSpec* const restrict f_args,
         void* dst,
         size_t (*writer)(void* dst, char* fmt, ...))
@@ -325,7 +345,7 @@ static size_t __c_cli_write_all_args(
     return written;
 }
 
-static size_t __c_cli_f_writer(void* f, char* fmt, ...)
+CCLI_PREFIX size_t __c_cli_f_writer(void* f, char* fmt, ...)
 {
     size_t res;
     va_list vars;
@@ -337,7 +357,7 @@ static size_t __c_cli_f_writer(void* f, char* fmt, ...)
     return res;
 }
 
-static size_t __c_cli_s_writer(void* f, char* fmt, ...)
+CCLI_PREFIX size_t __c_cli_s_writer(void* f, char* fmt, ...)
 {
     size_t res;
     va_list vars;
@@ -349,21 +369,21 @@ static size_t __c_cli_s_writer(void* f, char* fmt, ...)
     return res;
 }
 
-static size_t __c_cli_fprint_all_args(
+CCLI_PREFIX size_t __c_cli_fprint_all_args(
         FILE* const restrict out,
         const CCliArgSpec* const restrict f_args)
 {
     return __c_cli_write_all_args(f_args, out, __c_cli_f_writer);
 }
 
-static inline size_t __c_cli_sprint_all_args(
+CCLI_PREFIX size_t __c_cli_sprint_all_args(
         char* const restrict out,
         const CCliArgSpec* const restrict f_args)
 {
     return __c_cli_write_all_args(f_args, out, __c_cli_s_writer);
 }
 
-static void __c_cli_find_correct_align(
+CCLI_PREFIX void __c_cli_find_correct_align(
         struct __CCliAlignSizes* align,
         const CCliArgDef* const restrict defs, const size_t n_defs)
 {
@@ -391,7 +411,7 @@ static void __c_cli_find_correct_align(
 
 }
 
-static void __c_cli_print_defs_help(
+CCLI_PREFIX void __c_cli_print_defs_help(
         const CCliArgDef* const restrict defs,
         const size_t n_defs,
         struct __CCliAlignSizes* aligns,
@@ -430,7 +450,7 @@ static void __c_cli_print_defs_help(
     }
 }
 
-static CCliCheckInputDefsRet __c_cli_check_input_defs(
+CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
         const char* const restrict input,
         const CCliArgDef* defs,
         const size_t n_defs,
@@ -481,7 +501,7 @@ static CCliCheckInputDefsRet __c_cli_check_input_defs(
     return CCliCheckInputDefsRet_NotFound;
 }
 
-static const char* __c_cli_get_prog_name(const char* const restrict argv_0)
+CCLI_PREFIX const char* __c_cli_get_prog_name(const char* const restrict argv_0)
 {
     static char prog_name[CCLI_MAX_LEN_PROG_NAME] = {0};
 
@@ -504,14 +524,14 @@ static const char* __c_cli_get_prog_name(const char* const restrict argv_0)
 }
 
 #ifdef CCLI_DEPLOY
-static CCLI_PARSER_DECLARE_FULL(verbose, args, ctx)
+CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(verbose, args, ctx)
 {
     (void) ctx;
     args->verbose = true;
     return CCliActionOK;
 }
 
-static CCLI_PARSER_DECLARE_FULL(help, args, ctx)
+CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(help, args, ctx)
 {
     (void) ctx;
     args->help= true;
@@ -519,7 +539,7 @@ static CCLI_PARSER_DECLARE_FULL(help, args, ctx)
 }
 #endif //!CCLI_DEPLOY
 
-static inline CCLI_PARSER_DECLARE_FULL(__ignore_flag, args, ctx)
+CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(__ignore_flag, args, ctx)
 {
     (void) args;
     (void) ctx;
@@ -536,7 +556,7 @@ CCLI_PARSE_INTEGER_TEMPLATE(int16_t)
 CCLI_PARSE_INTEGER_TEMPLATE(int32_t)
 CCLI_PARSE_INTEGER_TEMPLATE(int64_t)
 
-static inline __CCliBaseDefInfo __c_cli_get_base_flags(void)
+CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void)
 {
     static const CCliArgDef base_flags[] =
     {
@@ -564,7 +584,7 @@ static inline __CCliBaseDefInfo __c_cli_get_base_flags(void)
 }
 
 #ifdef CCLI_DEPLOY
-static bool c_cli_parse(
+CCLI_PREFIX bool c_cli_parse(
         const CCliArgDef* defs,
         const size_t n_defs,
         struct CCliUserArgs* const restrict args,
@@ -630,7 +650,7 @@ static bool c_cli_parse(
 }
 #endif //!CCLI_DEPLOY
 
-static inline const char* c_cli_arg_type_to_str(const CCliArgType arg_type)
+CCLI_PREFIX const char* c_cli_arg_type_to_str(const CCliArgType arg_type)
 {
     const char* const restrict c_cli_args_types[__Count__CCliArg] =
     {
@@ -662,12 +682,12 @@ static inline const char* c_cli_arg_type_to_str(const CCliArgType arg_type)
 
 //pretty printers
 
-static inline const char* c_cli_bool_to_str(const bool val)
+CCLI_PREFIX const char* c_cli_bool_to_str(const bool val)
 {
     return val ? "True" : "False";
 }
 
-static inline const char* c_cli_str_arg_to_str(const char* const restrict arg)
+CCLI_PREFIX const char* c_cli_str_arg_to_str(const char* const restrict arg)
 {
     return arg ? arg : "(Nill)";
 }
@@ -675,7 +695,7 @@ static inline const char* c_cli_str_arg_to_str(const char* const restrict arg)
 
 //parsing general utility functions
 
-static inline const char* c_cli_next_arg(void* const restrict ctx)
+CCLI_PREFIX const char* c_cli_next_arg(void* const restrict ctx)
 {
     CCliParseCtx* p_ctx = ctx;
     if(*p_ctx->i < p_ctx->argc)
@@ -689,7 +709,7 @@ static inline const char* c_cli_next_arg(void* const restrict ctx)
 
 //parsing specialized utility functions
 
-static CCliActionReturn c_cli_parse_nex_arg_str(void* const restrict ctx, const char** out)
+CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_str(void* const restrict ctx, const char** out)
 {
     const char* raw_arg = c_cli_next_arg(ctx);
 
@@ -702,7 +722,7 @@ static CCliActionReturn c_cli_parse_nex_arg_str(void* const restrict ctx, const 
     return CCliActionMissingInput;
 }
 
-static CCliActionReturn c_cli_parse_nex_arg_dig(void* const restrict ctx, size_t* const restrict out)
+CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_dig(void* const restrict ctx, size_t* const restrict out)
 {
     const char* raw_arg = c_cli_next_arg(ctx);
 
