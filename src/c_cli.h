@@ -1,121 +1,114 @@
 #pragma once
 
+#include <assert.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "c_cli_helper.h"
+#include "c_cli_defs.h"
+#include "c_cli_utils.h"
 
-#ifndef CCLI_PREFIX
-#define CCLI_PREFIX static
-#endif // !CCLI_PREFIX
+static inline void __c_cli_print_all_args(FILE* const restrict out, char* const restrict f_args);
 
-/*
- * Before including this library the user has to define in the compilation unit the
- * following element:
- *
- * - struct CCliUserArgs: the struct containing all the cli's options
- * - a list of user defined functions to manage each flag which have to respect
- *   the following convention:.
- *           void (*) (
- *              CCliUserArgs* const restrict args,
- *              size_t* const restrict i,
- *              const int argc 
- *              const char ** argv
- *              )
- *   (macros for easy cases are already defined in c_cli_helper.h)
- *
- * - CCLI_ARGS_LIST : An X macro containing all the cli's arguments using the following
- *   convention:
- *           CCLI_X(LONG, L_PAD, SHORT, ARGS, S_PAD, ACTION, DESCR)
- *
- *           ALL the element of the X_MACRO are static strings EXCEPT ACTION
- *           which is a function pointer to a function, defined by the user,
- *           with the previously defined signature.
- *
- *
- *
- */
-
-
-//INTERNAL DEFINITIONS =================================================================
-
-#define CCLI_END_LINE "\n\r"
-#define CCLI_SLASH '/'
-
-CCLI_PREFIX void c_cli_print_help_to(const char* const prog_name, FILE* file)
+static inline void c_cli_print_help_full(
+        const CCliArgDef* const restrict defs,
+        const size_t n_defs,
+        const char* const argv_0, FILE* const restrict out)
 {
-    const size_t len = strlen(prog_name);
-    const char* cursor = &prog_name[len-1];
+    const size_t argv_0_len = strlen(argv_0);
+    const char* prog_name = &argv_0[argv_0_len-1];
+    const CCliArgDef* def;
 
-    while( cursor > prog_name && *cursor != CCLI_SLASH )
+    while(prog_name > argv_0 && *prog_name != CCLI_SLAH)
     {
-        cursor--;
+        prog_name--;
     }
 
-    if(*cursor == CCLI_SLASH) cursor++;
+    if(*prog_name == CCLI_SLAH) prog_name++;
 
-#define CCLI_X(LONG, L_PAD, SHORT, ARGS, S_PAD, ACTION, DESCR) \
-   CCLI_2_PAD LONG" "ARGS CCLI_1_PAD L_PAD SHORT" "ARGS CCLI_2_PAD S_PAD DESCR CCLI_END_LINE
 
-    fprintf(file, "usage %s [opts]" CCLI_END_LINE
-        CCLI_ARGS_LIST
-            , cursor);
+    fprintf(out, "usge %s [opts]:" CCLI_END_LINE, prog_name);
 
-#undef CCLI_X
-}
-
-CCLI_PREFIX bool ccli_action_out_check(
-        const char* const restrict cli_name,
-        const char* const restrict f_long,
-        const char* const restrict f_short,
-        const char* const restrict f_args,
-        const CCliActionReturn act_ret)
-{
-    switch (act_ret)
+    for(size_t i=0; i<n_defs; i++)
     {
-        case CCliActionOK: return true;
-        case CCliActionMissingInput:
-            fprintf(stderr, "cli: missing input for %s %s OR %s %s" CCLI_END_LINE,
-                    f_long, f_args, f_short, f_args);
-            break;
-        case CCliActionInvalidInput:
-            fprintf(stderr, "cli: invalid input for %s %s OR %s %s" CCLI_END_LINE,
-                    f_long, f_args, f_short, f_args);
-            break;
+        def = &defs[i];
+        fprintf(out, CCLI_2_TAB "%s ", def->f_long);             // --help
+        __c_cli_print_all_args(out, def->f_args);               // [...]
+        fprintf(out, "%s", def->l_pad);                         // long padding
+        fprintf(out, CCLI_1_TAB "%s ", def->f_short);            // -h
+        __c_cli_print_all_args(out, def->f_args);               // [...]
+        fprintf(out, "%s", def->s_pad);                         // short padding
+        fprintf(out, CCLI_1_TAB "%s", def->f_description);      // "description"
+        fprintf(out, CCLI_END_LINE);
     }
-
-    c_cli_print_help(cli_name);
-    return false;
 }
 
-CCLI_PREFIX int c_cli_parse(CCliUserArgs* const restrict args, const int argc, char** argv)
+static inline void c_cli_print_help(
+        const CCliArgDef* const restrict defs,
+        const size_t n_defs,
+        const char* const argv_0)
 {
-    const char* input = NULL;
+    c_cli_print_help_full(defs, n_defs, argv_0, stderr);
+}
 
-#define CCLI_X(LONG, L_PAD, SHORT, ARGS, S_PAD, ACTION, DESCR)          \
-    else if(!strcmp(input, LONG) || !strcmp(input, SHORT))              \
-    {                                                                   \
-        const CCliActionReturn ret = ACTION( args, &i, argc, argv );    \
-        if(!ccli_action_out_check(argv[0], LONG, SHORT, ""ARGS, ret))   \
-        {                                                               \
-            return -2;                                                  \
-        }                                                               \
-    }                                                                   \
+static int c_cli_parse(
+        const CCliArgDef* defs,
+        const size_t n_defs,
+        struct CCliUserArgs* const restrict args,
+        const int argc,
+        char** argv)
+{
+    const char* input;
+    const CCliArgDef* user_def;
+    CCliParseCtx ctx = {
+        .i=NULL,
+        .argc = argc,
+        .argv = argv,
+    };
 
-    for(int i=1; i< argc; i++)
+    CCliActionReturn act_res = CCliActionOK;
+
+    for(int i=0;i <argc; i++)
     {
+        ctx.i = &i;
         input = argv[i];
 
-        if(0)
+        for(size_t j=0; j<n_defs; j++)
         {
-            //just to introduce else if
-        }
-        CCLI_ARGS_LIST
-    }
-#undef CCLI_X
+            user_def = &defs[j];
 
-    for(size_t i=0; i<sizeof(CCliUserArgs); i++)
+            if(!strcmp(user_def->f_long, input) || !strcmp(user_def->f_short, input))
+            {
+                act_res = user_def->f_parser(args, &ctx);
+
+                if(act_res == CCliActionOK)
+                {
+                    break;
+                }
+                switch (act_res)
+                {
+                    case CCliActionOK:
+                        assert(0 && "unreachable");
+                        break;
+                    case CCliActionMissingInput:
+                        fprintf(stderr, "missing args");
+                        break;
+                    case CCliActionInvalidInput:
+                        fprintf(stderr, "invalid args");
+                        break;
+                }
+
+                fprintf(stderr, "for flag %s OR %s, expected: ",
+                        user_def->f_long, user_def->f_short);
+
+                __c_cli_print_all_args(stderr, user_def->f_args);
+                fprintf(stderr, "\n");
+            }
+        }
+    }
+
+    for(size_t i=0; i<sizeof(*args); i++)
     {
         if( ((const char*)args)[i] )
         {
@@ -123,9 +116,32 @@ CCLI_PREFIX int c_cli_parse(CCliUserArgs* const restrict args, const int argc, c
         }
     }
 
-    c_cli_print_help(argv[0]);
+    c_cli_print_help(defs, n_defs, argv[0]);
+
     return -1;
 }
 
-#undef CCLI_END_LINE
-#undef CCLI_SLASH
+//C_CLI INTERNAL DEFS
+static inline void __c_cli_print_all_args(FILE* const restrict out, char* const restrict f_args)
+{
+    static char temp_buffer[256] = {0};
+    strncpy(temp_buffer, f_args, sizeof(temp_buffer));
+
+    const char* token = strtok(temp_buffer, CCLI_ARG_SEPARATOR);
+    bool first = true;
+
+    if(token)
+    {
+        fprintf(out, "[");
+        while(token)
+        {
+            if(!first) fprintf(out, ", ");
+            fprintf(out, "%s", token);
+            first = false;
+            token = strtok(NULL, CCLI_ARG_SEPARATOR);
+
+        }
+        fprintf(out, "]");
+    }
+
+}

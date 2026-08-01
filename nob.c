@@ -12,6 +12,7 @@
   X(-pedantic)\
   X(-xc)\
   X(-std=c99)\
+  X(-ggdb)\
 
 #define LINKER_ARGS \
   X(-Wall)\
