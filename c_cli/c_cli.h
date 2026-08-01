@@ -11,7 +11,7 @@
 //public API ============================================================================
 
 //macros
-#define CCLI_STRINGIFY(STR) #STR
+#define CCLI_ARRAYSIZE(ARR) (sizeof(ARR)/sizeof(ARR[0]))
 
 #ifndef CCLI_PREFIX
 #define CCLI_PREFIX static inline
@@ -29,9 +29,9 @@
 #define CCLI_MAX_NUM_ARGS 8
 #endif // !CCLI_MAX_NUM_ARGS
 
-#ifndef CCLI_SLAH
-#define CCLI_SLAH '/'
-#endif // !CCLI_SLAH
+#ifndef CCLI_SLASH
+#define CCLI_SLASH '/'
+#endif // !CCLI_SLASH
 
 #define CCLI_END_LINE "\n\r"
 
@@ -53,10 +53,10 @@
 
 #define CCLI_PARSER_NAME(NAME)CCliParser_##NAME
 
-#define CCLI_PARSER_DECLARE_FULL(NAME, args, ctx)                                               \
-    CCliActionReturn CCLI_PARSER_NAME(NAME)(                                                    \
-            struct CCliUserArgs* const restrict args,                                           \
-            void* const restrict ctx)                                                           \
+#define CCLI_PARSER_DECLARE_FULL(NAME, args, ctx)                                                 \
+    CCliActionReturn CCLI_PARSER_NAME(NAME)(                                                      \
+            struct CCliUserArgs* const restrict args,                                             \
+            void* const restrict ctx)                                                             \
 
 #define CCLI_PARSER_DECLARE(NAME) CCLI_PARSER_DECLARE_FULL(NAME, args, ctx)
 
@@ -64,7 +64,7 @@
 static inline CCliActionReturn c_cli_parse_next_arg_##TYPE(                                       \
         void* const restrict ctx, TYPE* const restrict out)                                       \
 
-#define CCLI_PARSE_INTEGER_TEMPLATE(TYPE)                                                            \
+#define CCLI_PARSE_INTEGER_TEMPLATE(TYPE)                                                         \
 CCLI_PARSE_NEXT_ARG_DECLARE(TYPE)                                                                 \
 {                                                                                                 \
     size_t res =0;                                                                                \
@@ -510,12 +510,12 @@ CCLI_PREFIX const char* __c_cli_get_prog_name(const char* const restrict argv_0)
         const size_t argv_0_len = strlen(argv_0);
         const char* p_prog_name = &argv_0[argv_0_len-1];
 
-        while(p_prog_name > argv_0 && *p_prog_name != CCLI_SLAH)
+        while(p_prog_name > argv_0 && *p_prog_name != CCLI_SLASH)
         {
             p_prog_name--;
         }
 
-        if(*p_prog_name == CCLI_SLAH) p_prog_name++;
+        if(*p_prog_name == CCLI_SLASH) p_prog_name++;
 
         strncpy(prog_name, p_prog_name, sizeof(prog_name));
     }
@@ -577,10 +577,7 @@ CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void)
         },
     };
 
-    return (__CCliBaseDefInfo) {
-        .addr = base_flags,
-        .size = sizeof(base_flags)/sizeof(base_flags[0]),
-    };
+    return (__CCliBaseDefInfo) {.addr = base_flags, .size = CCLI_ARRAYSIZE(base_flags)};
 }
 
 #ifdef CCLI_DEPLOY
@@ -722,7 +719,9 @@ CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_str(void* const restrict ctx, c
     return CCliActionMissingInput;
 }
 
-CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_dig(void* const restrict ctx, size_t* const restrict out)
+CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_dig(
+        void* const restrict ctx,
+        size_t* const restrict out)
 {
     const char* raw_arg = c_cli_next_arg(ctx);
 
