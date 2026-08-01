@@ -1,5 +1,6 @@
 #include "cli.h"
 #include "c_cli.h"
+#include "c_cli_utils.h"
 
 #define CLI_PREFIX static inline
 
@@ -11,21 +12,21 @@ static const CCliArgDef cli_flags[] =
 {
     { //--verbose, -v
         .f_long = "--verbose",
-        .l_pad = CCLI_1_TAB,
+        .l_pad = CCLI_2_TAB,
         .f_short = "-v",
-        .s_pad = CCLI_1_TAB,
+        .s_pad = CCLI_2_TAB,
         .f_parser = CCLI_PARSER_NAME(verbose),
-        .f_args = "",
+        .f_args = CCLI_NO_ARG,
         .f_description = "print verbose output",
     },
 
     {//--help, -h
         .f_long = "--help",
-        .l_pad = CCLI_2_TAB,
+        .l_pad = CCLI_3_TAB,
         .f_short = "-h",
-        .s_pad = CCLI_1_TAB,
+        .s_pad = CCLI_2_TAB,
         .f_parser = CCLI_PARSER_NAME(__ignore_flag),
-        .f_args = "",
+        .f_args = CCLI_NO_ARG,
         .f_description = "print this help",
     },
 
@@ -33,19 +34,26 @@ static const CCliArgDef cli_flags[] =
         .f_long = "--path",
         .l_pad = CCLI_1_TAB,
         .f_short = "-p",
-        .s_pad = "",
+        .s_pad = CCLI_1_TAB,
         .f_parser = CCLI_PARSER_NAME(path),
-        .f_args = "path",
+        .f_args =
+        {
+            CCLI_NEW_ARG("path", CCliArgStr),
+        },
         .f_description = "use file from path",
     },
 
     {//--test [name, arg], -t [name, arg]
         .f_long = "--test",
-        .l_pad = "",
+        .l_pad = CCLI_NO_TAB,
         .f_short = "-t",
-        .s_pad = "",
+        .s_pad = CCLI_NO_TAB,
         .f_parser = CCLI_PARSER_NAME(test),
-        .f_args = "name" CCLI_ARG_SEPARATOR "arg",
+        .f_args =
+        {
+            CCLI_NEW_ARG("name", CCliArgStr),
+            CCLI_NEW_ARG("arg", CCliArgU8)
+        },
         .f_description = "run the test [name] with arg [arg]",
     },
 };
@@ -60,9 +68,7 @@ void cli_print_args(const CCliUserArgs* const restrict args)
     printf("verbose: %s\n", c_cli_bool_to_str(args->verbose));
     printf("help : %s\n", c_cli_bool_to_str(args->help));
     printf("path: %s\n", c_cli_str_arg_to_str(args->path));
-    printf("test: [name:%s, arg:%s]\n",
-            c_cli_str_arg_to_str(args->test.name),
-            c_cli_str_arg_to_str(args->test.arg));
+    printf("test: [name:%s, arg:%u]\n", c_cli_str_arg_to_str(args->test.name), args->test.arg);
 }
 
 CLI_PREFIX CCLI_PARSER_DECLARE_FULL(verbose, args, ctx)
@@ -74,23 +80,20 @@ CLI_PREFIX CCLI_PARSER_DECLARE_FULL(verbose, args, ctx)
 
 CLI_PREFIX CCLI_PARSER_DECLARE_FULL(path, args, ctx)
 {
-    args->path = c_cli_next_arg(ctx);
-
-    if(args->path)
-    {
-        return CCliActionOK;
-    }
-    return CCliActionMissingInput;
+    return c_cli_parse_nex_arg_str(ctx, &args->path);
 }
 
 CLI_PREFIX CCLI_PARSER_DECLARE_FULL(test, args, ctx)
 {
+    CCliActionReturn res;
+
     if(
-            (args->test.name = c_cli_next_arg(ctx)) &&
-            (args->test.arg  = c_cli_next_arg(ctx))
+            (res = c_cli_parse_nex_arg_str(ctx, &args->test.name)) != CCliActionOK ||
+            (res = c_cli_parse_next_arg_uint8_t(ctx, &args->test.arg)) != CCliActionOK
       )
     {
-        return CCliActionOK;
+        return res;
     }
-    return CCliActionMissingInput;
+
+    return res;
 }

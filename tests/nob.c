@@ -49,19 +49,16 @@ bool compile_obj(Nob_Walk_Entry entry)
         file_name[strlen(file_name)-1] = 'o'; //c
         const char* o_file = temp_sprintf("%s/%s", BUILD_DIR, file_name);
 
-        if(needs_rebuild1(o_file, entry.path))
+        cmd_append(&cmd, "cc");
+
+        for(size_t i=0; i<ArraySize(comp_args); i++)
         {
-            cmd_append(&cmd, "cc");
-
-            for(size_t i=0; i<ArraySize(comp_args); i++)
-            {
-                cmd_append(&cmd, comp_args[i]);
-            }
-            cmd_append(&cmd, "-o", o_file);
-            cmd_append(&cmd, "-c", entry.path);
-
-            return cmd_run(&cmd);
+            cmd_append(&cmd, comp_args[i]);
         }
+        cmd_append(&cmd, "-o", o_file);
+        cmd_append(&cmd, "-c", entry.path);
+
+        return cmd_run(&cmd);
     }
 
     return true;

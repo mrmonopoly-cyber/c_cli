@@ -9,7 +9,9 @@
 #include "c_cli_defs.h"
 #include "c_cli_utils.h"
 
-static inline void __c_cli_print_all_args(FILE* const restrict out, char* const restrict f_args);
+static inline void __c_cli_print_all_args(
+        FILE* const restrict out,
+        const CCliArgSpec* const restrict f_args);
 
 static inline void c_cli_print_help_full(
         const CCliArgDef* const restrict defs,
@@ -92,18 +94,22 @@ static int c_cli_parse(
                         assert(0 && "unreachable");
                         break;
                     case CCliActionMissingInput:
-                        fprintf(stderr, "missing args");
+                        {
+                            fprintf(stderr, "missing args for flag %s OR %s, expected: ",
+                                    user_def->f_long, user_def->f_short);
+                        }
                         break;
                     case CCliActionInvalidInput:
-                        fprintf(stderr, "invalid args");
+                        {
+                            fprintf(stderr, "invalid arg %s for flag %s OR %s, expected: ",
+                                    argv[i], user_def->f_long, user_def->f_short);
+                        }
                         break;
                 }
 
-                fprintf(stderr, "for flag %s OR %s, expected: ",
-                        user_def->f_long, user_def->f_short);
-
                 __c_cli_print_all_args(stderr, user_def->f_args);
                 fprintf(stderr, "\n");
+                return -1;
             }
         }
     }
@@ -122,25 +128,36 @@ static int c_cli_parse(
 }
 
 //C_CLI INTERNAL DEFS
-static inline void __c_cli_print_all_args(FILE* const restrict out, char* const restrict f_args)
+static inline void __c_cli_print_all_args(
+        FILE* const restrict out,
+        const CCliArgSpec* const restrict f_args)
 {
-    static char temp_buffer[256] = {0};
-    strncpy(temp_buffer, f_args, sizeof(temp_buffer));
+    const CCliArgSpec* arg;
+    bool empty = true;
 
-    const char* token = strtok(temp_buffer, CCLI_ARG_SEPARATOR);
-    bool first = true;
-
-    if(token)
+    for(size_t i=0; i<CCLI_MAX_NUM_ARGS; i++)
     {
-        fprintf(out, "[");
-        while(token)
-        {
-            if(!first) fprintf(out, ", ");
-            fprintf(out, "%s", token);
-            first = false;
-            token = strtok(NULL, CCLI_ARG_SEPARATOR);
+        arg = &f_args[i];
 
+        if(arg->name != NULL)
+        {
+            if(empty)
+            {
+                fprintf(out, "[");
+                empty = false;
+            }
+
+            if(i>0)
+            {
+                fprintf(out, ", ");
+            }
+
+            fprintf(out, "%s:%s", arg->name, c_cli_arg_type_to_str(arg->type));
         }
+    }
+
+    if(!empty)
+    {
         fprintf(out, "]");
     }
 

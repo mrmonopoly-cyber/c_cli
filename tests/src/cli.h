@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct CCliUserArgs{
     bool verbose;
@@ -8,7 +9,7 @@ typedef struct CCliUserArgs{
     const char* path;
     struct{
         const char* name;
-        const char* arg;
+        uint8_t arg;
     }test;
 }CCliUserArgs;
 
