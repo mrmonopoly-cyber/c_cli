@@ -3,10 +3,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "c_cli_defs.h"
-
 typedef struct CCliUserArgs{
-    CCliBaseUserArgs base;
+    bool verbose;
+    bool help;
     const char* path;
     struct{
         const char* name;

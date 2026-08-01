@@ -1,6 +1,5 @@
 #include "cli.h"
 #include "c_cli.h"
-#include "c_cli_utils.h"
 
 #define CLI_PREFIX static inline
 
@@ -33,6 +32,9 @@ static const CCliArgDef cli_flags[] =
     },
 };
 
+#define CCLI_DEPLOY
+#include "c_cli.h"
+
 static void default_args(CCliUserArgs* const restrict args)
 {
     args->path = "default path";
@@ -53,8 +55,8 @@ int cli_parse(CCliUserArgs* const restrict args, int argc, char** argv)
 
 void cli_print_args(const CCliUserArgs* const restrict args)
 {
-    printf("verbose: %s\n", c_cli_bool_to_str(args->base.verbose));
-    printf("help: %s\n", c_cli_bool_to_str(args->base.help));
+    printf("verbose: %s\n", c_cli_bool_to_str(args->verbose));
+    printf("help: %s\n", c_cli_bool_to_str(args->help));
     printf("path: %s\n", c_cli_str_arg_to_str(args->path));
     printf("test: [name:%s, arg:%u]\n", c_cli_str_arg_to_str(args->test.name), args->test.arg);
 }
