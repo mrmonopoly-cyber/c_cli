@@ -11,9 +11,24 @@
 #include "c_cli_defs.h"
 #include "c_cli_utils.h"
 
+static bool c_cli_parse(
+        const CCliArgDef* defs,
+        const size_t n_defs,
+        struct CCliUserArgs* const restrict args,
+        const int argc,
+        char** argv,
+        CCliDefaultSetter def_set);
+
+
+//C_CLI INTERNAL DEFS
+
+struct __CCliAlignSizes{
+    size_t s_to_l;
+    size_t l_to_d;
+};
+
 static CCLI_PARSER_DECLARE(verbose);
 static CCLI_PARSER_DECLARE(help);
-
 static const CCliArgDef __c_cli_base_flags[] =
 {
     { //--verbose, -v
@@ -33,12 +48,8 @@ static const CCliArgDef __c_cli_base_flags[] =
     },
 };
 
-struct __CliAlignSizes{
-    size_t s_to_l;
-    size_t l_to_d;
-};
 static void __c_cli_find_correct_align(
-        struct __CliAlignSizes* align,
+        struct __CCliAlignSizes* align,
         const CCliArgDef* const restrict defs,
         const size_t n_defs);
 
@@ -49,53 +60,15 @@ static size_t __c_cli_fprint_all_args(
 static void __c_cli_print_defs_help(
         const CCliArgDef* const restrict defs,
         const size_t n_defs,
-        struct __CliAlignSizes* aligns,
+        struct __CCliAlignSizes* aligns,
         FILE* const restrict out
         );
 
-static inline void c_cli_print_help_full(
+static inline void __c_cli_print_help_full(
         const CCliArgDef* const restrict defs,
         const size_t n_defs,
         const char* const argv_0,
-        FILE* const restrict out)
-{
-    const size_t argv_0_len = strlen(argv_0);
-    const char* prog_name = &argv_0[argv_0_len-1];
-    const size_t n_base_defs = sizeof(__c_cli_base_flags)/sizeof(__c_cli_base_flags[0]);
-
-    struct __CliAlignSizes aligns = {0};
-
-    while(prog_name > argv_0 && *prog_name != CCLI_SLAH)
-    {
-        prog_name--;
-    }
-
-    if(*prog_name == CCLI_SLAH) prog_name++;
-
-    __c_cli_find_correct_align(&aligns, defs, n_defs);
-    __c_cli_find_correct_align(&aligns, __c_cli_base_flags, n_base_defs);
-
-    fprintf(out, "usge %s [opts]:" CCLI_END_LINE, prog_name);
-
-
-    //user defs
-    __c_cli_print_defs_help(defs, n_defs, &aligns, out);
-
-    //base defs
-    __c_cli_print_defs_help(
-            __c_cli_base_flags,
-            sizeof(__c_cli_base_flags)/sizeof(__c_cli_base_flags[0]),
-            &aligns,
-            out);
-}
-
-static inline void c_cli_print_help(
-        const CCliArgDef* const restrict defs,
-        const size_t n_defs,
-        const char* const argv_0)
-{
-    c_cli_print_help_full(defs, n_defs, argv_0, stderr);
-}
+        FILE* const restrict out);
 
 typedef enum {
     CCliCheckInputDefsRet_Found =0,
@@ -111,7 +84,9 @@ static CCliCheckInputDefsRet __c_cli_check_input_defs(
         CCliParseCtx* const restrict ctx
         );
 
-static int c_cli_parse(
+static const char* __c_cli_get_prog_name(const char* const restrict argv_0);
+
+static bool c_cli_parse(
         const CCliArgDef* defs,
         const size_t n_defs,
         struct CCliUserArgs* const restrict args,
@@ -121,13 +96,14 @@ static int c_cli_parse(
 {
     const char* input;
     const size_t n_base_defs = sizeof(__c_cli_base_flags)/sizeof(__c_cli_base_flags[0]);
+    const char* prog_name = __c_cli_get_prog_name(argv[0]);
     CCliParseCtx ctx = {
         .i=NULL,
         .argc = argc,
         .argv = argv,
     };
 
-    for(int i=0;i <argc; i++)
+    for(int i=1;i <argc; i++)
     {
         ctx.i = &i;
         input = argv[i];
@@ -136,44 +112,70 @@ static int c_cli_parse(
         {
             case CCliCheckInputDefsRet_Found: continue;
             case CCliCheckInputDefsRet_NotFound: break;
-            case CCliCheckInputDefsRet_Error: return -2;
+            case CCliCheckInputDefsRet_Error: return false;
         }
 
         switch(__c_cli_check_input_defs(input, __c_cli_base_flags, n_base_defs, args, &ctx))
         {
             case CCliCheckInputDefsRet_Found: continue;
             case CCliCheckInputDefsRet_NotFound: break;
-            case CCliCheckInputDefsRet_Error: return -2;
+            case CCliCheckInputDefsRet_Error: return false;
         }
+
+        fprintf(stderr, "%s: unrecognized flag: %s" CCLI_END_LINE, prog_name, input);
     }
 
     if(args->base.help)
     {
-        c_cli_print_help(defs, n_defs, argv[0]);
-        return -1;
+        __c_cli_print_help_full(defs, n_defs, argv[0], stderr);
+        return false;
     }
 
     for(size_t i=0; i<sizeof(*args); i++)
     {
         if( ((const char*)args)[i] )
         {
-            return 0;
+            return true;
         }
     }
 
     if(def_set)
     {
-        printf("c_cli: no arguments provide. Applying default values\n");
+        printf("%s: no arguments provide. Applying default values\n", prog_name);
         def_set(args);
-        return 0;
+        return true;
     }
 
-    c_cli_print_help(defs, n_defs, argv[0]);
+    __c_cli_print_help_full(defs, n_defs, argv[0], stderr);
 
-    return -1;
+    return false;
 }
 
-//C_CLI INTERNAL DEFS
+static inline void __c_cli_print_help_full(
+        const CCliArgDef* const restrict defs,
+        const size_t n_defs,
+        const char* const argv_0,
+        FILE* const restrict out)
+{
+    const char* prog_name = __c_cli_get_prog_name(argv_0);
+    const size_t n_base_defs = sizeof(__c_cli_base_flags)/sizeof(__c_cli_base_flags[0]);
+    struct __CCliAlignSizes aligns = {0};
+
+    __c_cli_find_correct_align(&aligns, defs, n_defs);
+    __c_cli_find_correct_align(&aligns, __c_cli_base_flags, n_base_defs);
+
+    fprintf(out, "usge %s [opts]:" CCLI_END_LINE, prog_name);
+
+    //user defs
+    __c_cli_print_defs_help(defs, n_defs, &aligns, out);
+
+    //base defs
+    __c_cli_print_defs_help(
+            __c_cli_base_flags,
+            sizeof(__c_cli_base_flags)/sizeof(__c_cli_base_flags[0]),
+            &aligns,
+            out);
+}
 
 static size_t __c_cli_write_all_args(
         const CCliArgSpec* const restrict f_args,
@@ -253,7 +255,7 @@ static inline size_t __c_cli_sprint_all_args(
 }
 
 static void __c_cli_find_correct_align(
-        struct __CliAlignSizes* align,
+        struct __CCliAlignSizes* align,
         const CCliArgDef* const restrict defs, const size_t n_defs)
 {
     static char temp_buffer[256] = {0};
@@ -280,24 +282,10 @@ static void __c_cli_find_correct_align(
 
 }
 
-static CCLI_PARSER_DECLARE_FULL(verbose, args, ctx)
-{
-    (void) ctx;
-    args->base.verbose = true;
-    return CCliActionOK;
-}
-
-static CCLI_PARSER_DECLARE_FULL(help, args, ctx)
-{
-    (void) ctx;
-    args->base.help= true;
-    return CCliActionOK;
-}
-
 static void __c_cli_print_defs_help(
         const CCliArgDef* const restrict defs,
         const size_t n_defs,
-        struct __CliAlignSizes* aligns,
+        struct __CCliAlignSizes* aligns,
         FILE* const restrict out
         )
 {
@@ -383,4 +371,40 @@ static CCliCheckInputDefsRet __c_cli_check_input_defs(
     }
 
     return CCliCheckInputDefsRet_NotFound;
+}
+
+static const char* __c_cli_get_prog_name(const char* const restrict argv_0)
+{
+    static char prog_name[CCLI_MAX_LEN_PROG_NAME] = {0};
+
+    if(argv_0 && !*prog_name)
+    {
+        const size_t argv_0_len = strlen(argv_0);
+        const char* p_prog_name = &argv_0[argv_0_len-1];
+
+        while(p_prog_name > argv_0 && *p_prog_name != CCLI_SLAH)
+        {
+            p_prog_name--;
+        }
+
+        if(*p_prog_name == CCLI_SLAH) p_prog_name++;
+
+        strncpy(prog_name, p_prog_name, sizeof(prog_name));
+    }
+
+    return prog_name;
+}
+
+static CCLI_PARSER_DECLARE_FULL(verbose, args, ctx)
+{
+    (void) ctx;
+    args->base.verbose = true;
+    return CCliActionOK;
+}
+
+static CCLI_PARSER_DECLARE_FULL(help, args, ctx)
+{
+    (void) ctx;
+    args->base.help= true;
+    return CCliActionOK;
 }

@@ -21,13 +21,16 @@ const static char* comp_args[] =
   "-xc",
   "-std=c99",
   "-ggdb",
+  "-pedantic",
   "-I"PROJ_SRC_DIR,
+  "-fsanitize=address",
 };
 
 const static char* linker_args[] =
 {
   "-Wall",
   "-Wextra",
+  "-fsanitize=address",
 };
 
 

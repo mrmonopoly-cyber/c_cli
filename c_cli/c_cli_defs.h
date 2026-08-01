@@ -2,6 +2,10 @@
 
 #include <stdbool.h>
 
+#ifndef CCLI_MAX_LEN_PROG_NAME
+#define CCLI_MAX_LEN_PROG_NAME 64
+#endif // !CCLI_MAX_LEN_PROG_NAME
+
 #ifndef CCLI_CHARS_IN_TAB
 #define CCLI_CHARS_IN_TAB 8
 #endif // !CCLI_CHARS_IN_TAB
@@ -10,12 +14,11 @@
 #define CCLI_MAX_NUM_ARGS 8
 #endif // !CCLI_MAX_NUM_ARGS
 
-#define CCLI_END_LINE "\n\r"
+#ifndef CCLI_SLAH
 #define CCLI_SLAH '/'
+#endif // !CCLI_SLAH
 
-#ifndef CCLI_ARG_SEPARATOR
-#define CCLI_ARG_SEPARATOR " "
-#endif // !CCLI_ARG_SEPARATOR
+#define CCLI_END_LINE "\n\r"
 
 #define CCLI_NO_TAB ""
 #define CCLI_1_TAB "\t"
