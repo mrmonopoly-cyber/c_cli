@@ -13,7 +13,7 @@
 #define CCLI_LONG_FLAG(NAME) "--"#NAME
 #define CCLI_SHORT_FLAG(NAME) "-"#NAME
 
-#define CCLI_NEW_ARG(name, type) {name, type}
+#define CCLI_NEW_ARG(name, type) {#name, type}
 #define CCLI_NO_ARG {CCLI_NEW_ARG(NULL, 0)}
 
 #define CCLI_PARSER_NAME(NAME)CCliParser_##NAME

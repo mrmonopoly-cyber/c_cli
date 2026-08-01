@@ -31,7 +31,7 @@ static const CCliArgDef cli_flags[] =
         .f_short = CCLI_SHORT_FLAG(p),
         .f_args =
         {
-            CCLI_NEW_ARG("path", CCliArgStr),
+            CCLI_NEW_ARG(path, CCliArgStr),
         },
         .f_description = "use file from path",
         .f_parser = CCLI_PARSER_NAME(path),
@@ -42,8 +42,8 @@ static const CCliArgDef cli_flags[] =
         .f_short = CCLI_SHORT_FLAG(t),
         .f_args =
         {
-            CCLI_NEW_ARG("name", CCliArgStr),
-            CCLI_NEW_ARG("arg", CCliArgU8)
+            CCLI_NEW_ARG(name, CCliArgStr),
+            CCLI_NEW_ARG(arg, CCliArgU8)
         },
         .f_description = "run the test [name] with arg [arg]",
         .f_parser = CCLI_PARSER_NAME(test),
