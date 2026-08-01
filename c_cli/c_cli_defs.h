@@ -51,6 +51,8 @@ typedef CCliActionReturn (*CCliParser)(
         struct CCliUserArgs* const restrict args,
         void* const restrict ctx);
 
+typedef void (*CCliDefaultSetter)(struct CCliUserArgs* const restrict args);
+
 typedef struct{
     const char* name;
     const CCliArgType type;

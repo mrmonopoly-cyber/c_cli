@@ -88,7 +88,8 @@ static int c_cli_parse(
         const size_t n_defs,
         struct CCliUserArgs* const restrict args,
         const int argc,
-        char** argv)
+        char** argv,
+        CCliDefaultSetter def_set)
 {
     const char* input;
     const CCliArgDef* user_def;
@@ -149,6 +150,12 @@ static int c_cli_parse(
         {
             return 0;
         }
+    }
+
+    if(def_set)
+    {
+        def_set(args);
+        return 0;
     }
 
     c_cli_print_help(defs, n_defs, argv[0]);

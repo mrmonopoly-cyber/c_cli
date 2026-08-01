@@ -50,9 +50,22 @@ static const CCliArgDef cli_flags[] =
     },
 };
 
+static void default_args(CCliUserArgs* const restrict args)
+{
+    args->path = "default path";
+    args->test.name = "default test";
+    args->test.arg = 69;
+}
+
 int cli_parse(CCliUserArgs* const restrict args, int argc, char** argv)
 {
-    return c_cli_parse(cli_flags, sizeof(cli_flags)/sizeof(cli_flags[0]), args, argc, argv);
+    return c_cli_parse(
+            cli_flags,
+            sizeof(cli_flags)/sizeof(cli_flags[0]),
+            args,
+            argc,
+            argv,
+            default_args);
 }
 
 void cli_print_args(const CCliUserArgs* const restrict args)
