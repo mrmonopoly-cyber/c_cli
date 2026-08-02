@@ -393,6 +393,11 @@
 #define CCLI_NEW_ARG(name, type) {#name, type}
 #define CCLI_NO_ARG {{NULL, 0}}
 
+//c_cli version
+#define CCLI_MAJOR      ( (const uint32_t) 0U )
+#define CCLI_MINOR      ( (const uint32_t) 1U )
+#define CCLI_PATCH      ( (const uint32_t) 0U )
+
 //flag parsers
 
 #define CCLI_PARSER_NAME(NAME)CCliParser_##NAME
@@ -485,6 +490,14 @@ typedef struct CCliParseCtx{
 #endif // !CCLI_TYPES
 
 //declarations
+
+#ifndef CCLI_VERSION_HELPER
+#define CCLI_VERSION_HELPER
+static inline uint32_t c_cli_get_version(void)
+{
+    return ( (uint32_t) (CCLI_MAJOR << 2U) | (CCLI_MINOR << 1U) | (CCLI_PATCH << 0) );
+}
+#endif // !CCLI_VERSION_HELPER
 
 static bool c_cli_parse(
         const CCliArgDef* defs,
