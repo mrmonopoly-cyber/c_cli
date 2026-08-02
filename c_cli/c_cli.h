@@ -433,22 +433,22 @@ CCLI_PARSE_NEXT_ARG_DECLARE(TYPE)                                               
 #define CCLI_TYPES
 
 typedef enum{
-    CCliArgVoid =0  ,
+    CCliArgVoid = 0,
 
-    CCliArgBool     ,
+    CCliArgBool,
 
-    CCliArgChar     ,
-    CCliArgStr      ,
+    CCliArgChar,
+    CCliArgStr,
 
-    CCliArgU8       ,
-    CCliArgU16      ,
-    CCliArgU32      ,
-    CCliArgU64      ,
+    CCliArgU8,
+    CCliArgU16,
+    CCliArgU32,
+    CCliArgU64,
 
-    CCliArgS8       ,
-    CCliArgS16      ,
-    CCliArgS32      ,
-    CCliArgS64      ,
+    CCliArgS8,
+    CCliArgS16,
+    CCliArgS32,
+    CCliArgS64,
 
     __Count__CCliArg,
 }CCliArgType;
