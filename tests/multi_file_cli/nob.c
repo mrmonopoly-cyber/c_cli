@@ -5,7 +5,7 @@
 
 #define ArraySize(ARR) (sizeof(ARR)/sizeof(ARR[0]))
 
-#define PROJECT_ROOT ".."
+#define PROJECT_ROOT "../.."
 
 #define BUILD_DIR "build"
 #define SRC_DIR "src"
