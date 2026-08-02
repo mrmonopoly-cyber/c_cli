@@ -341,7 +341,7 @@
  * Public License instead of this License.
  *
  *
- */
+*/
 #include <stdarg.h>
 #include <assert.h>
 #include <stdarg.h>
@@ -351,6 +351,241 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
+
+/*
+ * DESCRIPTION:
+ *
+ * C_Cli is header only heapless typed cli library written in C99.
+ * It's designed to be easily integrated in pre existing Cli objects and with pre existing 
+ * flag parsing logic.
+ * The library does not require the user to expose it's usage in the main user interface.
+ * ( MyAwesomeCli.h does not have to contain #include "c_cli.h" )
+ * With that the user can define a generic interface for its cli and later change the 
+ * implementation as he/she fits.
+ *
+ * it works by including the c_cli.h header two times:
+ * - the first time to configure the environment
+ * - the second time to deploy the library logic after that the user declare all the 
+ *   necessary definitions.
+ *
+ * By default c_cli.h can be included multiple times without causing any harm.
+ *
+ * By defining CCLI_DEPLOY before including c_cli.h the library will deploy the 
+ * main logic of the library.
+ *
+ * THIS CAN BE DONE ONLY ONCE FOR PROGRAM OTHERWISE A DOUBLE DEFINITION ERROR WILL OCCUR.
+ *
+ *
+ * FEATURES:
+ *
+ * Below a list of a few of the available features out of the box:
+ * - heapless                  : no heap allocations
+ * - auto alignement           : the cli will be automatically aligned based on the flags that compose the cli
+ * - typed arg flags           : each argument of each flag has a type which is checked by the library
+ * - long and short flag       : each flag has a long and a short version
+ * - base flags                : --help/-h, --verbose/-v are already defined by the library
+ * - user default flag         : optional possibility to define custom default flags.
+ *                               Default is none and triggers printing help on stderr.
+ * - name detection            : the cli's name will be equivalent of the program that is using it
+ * - invalid input flag        : invalid user flags are auto detected and
+ *                               printed as warning to the screen
+ *
+ * USAGE:
+ * To use the library you need to manually define the following elements:
+ * 
+ * - an option object with type struct CCliUserArgs
+ * - an array of CCliArgDef which tells the library the elements which defines the cli
+ * - a set of functions, required in the definition an CCliArgDef to handle each flag
+ *
+ * CCliUserArgs will contains all the output values and it will populated by the library during
+ * parsing.
+ *
+ * IT MUST CONTAIN AT LEAST (position is irrelevant):
+ * - bool verbose;
+ * - bool help;
+ *
+ * below an example:
+ * 
+ * typedef struct CCliUserArgs{
+ *     bool verbose;
+ *     bool help;
+ *     const char* path;
+ *     struct{
+ *         const char* name;
+ *         uint8_t arg;
+ *     }test;
+ * }MyCliArgs;
+ *
+ * CCliArgDef is a flag (short and long) of your cli.
+ * Each element tells the library:
+ *  - the name of the flag to parse (long and short)
+ *  - the list of args the flags expected (can be EMPTY)
+ *  - a description of the flag
+ *  - and a function pointer to user defined parser for that flag
+ *  
+ *  below a few examples:
+ *
+ *      //--help, -h
+ *      {
+ *          .f_long = CCLI_LONG_FLAG(help),         // long version of the flag:--help
+ *          .f_short = CCLI_SHORT_FLAG(h),          // short version of the flag: -h
+ *          .f_args = CCLI_NO_ARG,                  // no args expected
+ *          .f_description = "print this help",     // description of the flag
+ *          .f_parser = CCLI_PARSER_NAME(help),     // function pointer to parser of the help flag
+ *      },
+ *
+ *      //--test [name, arg], -t [name, arg]
+ *      {
+ *          .f_long = CCLI_LONG_FLAG(test),         // long version of the flag: --test
+ *          .f_short = CCLI_SHORT_FLAG(t),          // short version of the flag: -t
+ *          .f_args =                               // test expects two arguments
+ *          {
+ *              CCLI_NEW_ARG(name, CCliArgStr),     // first argument called name of type string
+ *              CCLI_NEW_ARG(arg, CCliArgU8)        // second argument called arg of type uint8_t
+ *          },
+ *          .f_description = "run the test [name] with arg [arg]", //description of the flag
+ *          .f_parser = CCLI_PARSER_NAME(test),     // function pointer to parser of the test flag
+ *      },
+ *
+ *
+ * As mentioned the parser has to be user defined and have to respect signature of CCliParser.
+ *
+ * Below a few examples:
+ * CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(verbose, args, ctx)
+ * {
+ *     (void) ctx;
+ *     args->verbose = true;
+ *     return CCliActionOK;
+ * }
+ *
+ * CLI_PREFIX CCLI_PARSER_DECLARE_FULL(test, args, ctx)
+ * {
+ *     CCliActionReturn res;
+ * 
+ *     if(
+ *             (res = c_cli_parse_nex_arg_str(ctx, &args->test.name)) != CCliActionOK ||
+ *             (res = c_cli_parse_next_arg_uint8_t(ctx, &args->test.arg)) != CCliActionOK
+ *       )
+ *     {
+ *         return res;
+ *     }
+ * 
+ *     return res;
+ * }
+ *
+ *
+ * Combining all things together:
+ *
+ *
+ * MyAwesomeCli.h:
+ * #pragma once
+ * 
+ * #include <stdbool.h>
+ * #include <stdint.h>
+ * 
+ * typedef struct CCliUserArgs{
+ *     bool verbose;
+ *     bool help;
+ *     const char* path;
+ *     struct{
+ *         const char* name;
+ *         uint8_t arg;
+ *     }test;
+ * }CCliUserArgs;
+ * 
+ * int cli_parse(CCliUserArgs* const restrict args, int argc, char** argv);
+ * void cli_print_args(const CCliUserArgs* const restrict args);
+ *
+ * //========================================================================================
+ *
+ * MyAwesomeCli.c:
+ * #include "c_cli.h"
+ * 
+ * #define CLI_PREFIX static inline
+ * 
+ * CLI_PREFIX CCLI_PARSER_DECLARE(path);
+ * CLI_PREFIX CCLI_PARSER_DECLARE(test);
+ * 
+ * static const CCliArgDef cli_flags[] =
+ * {
+ *     {//--file [path], -f [path]
+ *         .f_long = CCLI_LONG_FLAG(path),
+ *         .f_short = CCLI_SHORT_FLAG(p),
+ *         .f_args =
+ *         {
+ *             CCLI_NEW_ARG(path, CCliArgStr),
+ *         },
+ *         .f_description = "use file from path",
+ *         .f_parser = CCLI_PARSER_NAME(path),
+ *     },
+ * 
+ *     {//--test [name, arg], -t [name, arg]
+ *         .f_long = CCLI_LONG_FLAG(test),
+ *         .f_short = CCLI_SHORT_FLAG(t),
+ *         .f_args =
+ *         {
+ *             CCLI_NEW_ARG(name, CCliArgStr),
+ *             CCLI_NEW_ARG(arg, CCliArgU8)
+ *         },
+ *         .f_description = "run the test [name] with arg [arg]",
+ *         .f_parser = CCLI_PARSER_NAME(test),
+ *     },
+ * };
+ * 
+ * #define CCLI_DEPLOY
+ * #include "c_cli.h"
+ * 
+ * static void default_args(CCliUserArgs* const restrict args)
+ * {
+ *     args->path = "default path";
+ *     args->test.name = "default test";
+ *     args->test.arg = 69;
+ * }
+ * 
+ * int cli_parse(CCliUserArgs* const restrict args, int argc, char** argv)
+ * {
+ *     return c_cli_parse(
+ *             cli_flags,
+ *             sizeof(cli_flags)/sizeof(cli_flags[0]),
+ *             args,
+ *             argc,
+ *             argv,
+ *             default_args);
+ * }
+ * 
+ * void cli_print_args(const CCliUserArgs* const restrict args)
+ * {
+ *     printf("verbose: %s\n", c_cli_bool_to_str(args->verbose));
+ *     printf("help: %s\n", c_cli_bool_to_str(args->help));
+ *     printf("path: %s\n", c_cli_str_arg_to_str(args->path));
+ *     printf("test: [name:%s, arg:%u]\n", c_cli_str_arg_to_str(args->test.name), args->test.arg);
+ * }
+ * 
+ * CLI_PREFIX CCLI_PARSER_DECLARE_FULL(path, args, ctx)
+ * {
+ *     return c_cli_parse_nex_arg_str(ctx, &args->path);
+ * }
+ * 
+ * CLI_PREFIX CCLI_PARSER_DECLARE_FULL(test, args, ctx)
+ * {
+ *     CCliActionReturn res;
+ * 
+ *     if(
+ *             (res = c_cli_parse_nex_arg_str(ctx, &args->test.name)) != CCliActionOK ||
+ *             (res = c_cli_parse_next_arg_uint8_t(ctx, &args->test.arg)) != CCliActionOK
+ *       )
+ *     {
+ *         return res;
+ *     }
+ * 
+ *     return res;
+ * }
+ * 
+ *
+ * It's also possible to create a header only cli.h pretty easily by adding an
+ * #ifdef MYAWESOMECLI_IMPLEMENTATION right before the first include of c_cli.h which determines
+ * the start of the implementation logic
+*/
 
 //public API ============================================================================
 
