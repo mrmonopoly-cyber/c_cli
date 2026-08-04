@@ -854,10 +854,6 @@ CCLI_PREFIX size_t __c_cli_sprint_all_args(
         char* const restrict out,
         const CCliArgSpec* const restrict f_args);
 
-CCLI_PREFIX void __c_cli_find_correct_align(
-        struct __CCliAlignSizes* align,
-        const CCliArgDef* const restrict defs, const size_t n_defs);
-
 CCLI_PREFIX void __c_cli_print_defs_help(
         const CCliArgDef* const restrict defs,
         const size_t n_defs,
@@ -990,12 +986,12 @@ CCLI_PREFIX void __c_cli_find_correct_align(
 
         args_len = __c_cli_write_all_args(args, temp_buffer, __c_cli_s_writer);
 
-        f_len = strlen(defs[i].f_short);
+        f_len = defs[i].f_short ? strlen(defs[i].f_short) : 0;
         tot_len = args_len + f_len;
         n_tabs = (tot_len / CCLI_CHARS_IN_TAB) + ((tot_len % CCLI_CHARS_IN_TAB) > 0);
         if(n_tabs > align->l_to_d) align->s_to_l = n_tabs;
 
-        f_len = strlen(defs[i].f_long);
+        f_len = defs[i].f_long ? strlen(defs[i].f_long) : 0;
         tot_len = args_len + f_len;
         n_tabs = (tot_len / CCLI_CHARS_IN_TAB) + ((tot_len % CCLI_CHARS_IN_TAB) > 0);
         if(n_tabs > align->l_to_d) align->l_to_d = n_tabs;
@@ -1019,8 +1015,11 @@ CCLI_PREFIX void __c_cli_print_defs_help(
 
         fprintf(out, CCLI_2_TAB);
 
-        written += fprintf(out, "%s ", def->f_long);                        // --help
-        written += __c_cli_fprint_all_args(out, def->f_args);               // [...]
+        if(def->f_long)
+        {
+            written += fprintf(out, "%s ", def->f_long);                    // --help
+            written += __c_cli_fprint_all_args(out, def->f_args);           // [...]
+        }
 
         while(written < to_write)
         {
@@ -1032,12 +1031,20 @@ CCLI_PREFIX void __c_cli_print_defs_help(
 
         fprintf(out, CCLI_1_TAB);
 
-        written += fprintf(out, "%s ", def->f_short);                       // -h
-        written += __c_cli_fprint_all_args(out, def->f_args);               // [...]
+        if(def->f_short)
+        {
+            written += fprintf(out, "%s ", def->f_short);                   // -h
+            written += __c_cli_fprint_all_args(out, def->f_args);           // [...]
+        }
 
         while(written < to_write)
         {
             written += fprintf(out, " ");                                   // short padding
+        }
+
+        if(def->f_description)
+        {
+            fprintf(out, def->f_description);                               // description
         }
 
         fprintf(out, CCLI_END_LINE);
