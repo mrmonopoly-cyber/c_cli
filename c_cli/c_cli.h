@@ -630,7 +630,7 @@
 
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 0U )
-#define CCLI_MINOR      ( (const uint32_t) 2U )
+#define CCLI_MINOR      ( (const uint32_t) 3U )
 #define CCLI_PATCH      ( (const uint32_t) 0U )
 
 //flag parsers
@@ -841,13 +841,20 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
 
 CCLI_PREFIX const char* __c_cli_get_prog_name(const char* const restrict argv_0);
 
+#if !defined(CCLI_FLAG_NO_HELP) || !defined(CCLI_FLAG_NO_VERBOSE)
 CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void);
+#endif
 
 CCLI_PREFIX size_t __c_cli_f_writer(void* f, char* fmt, ...);
 CCLI_PREFIX size_t __c_cli_s_writer(void* f, char* fmt, ...);
 
+#ifndef CCLI_FLAG_NO_VERBOSE
 CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(verbose, args, ctx);
+#endif // !CCLI_FLAG_NO_VERBOSE
+
+#ifndef CCLI_FLAG_NO_HELP
 CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(help, args, ctx);
+#endif // !CCLI_FLAG_NO_HELP
 
 //implementations
 
@@ -858,19 +865,25 @@ CCLI_PREFIX void __c_cli_print_help_full(
         FILE* const restrict out)
 {
     const char* prog_name = __c_cli_get_prog_name(argv_0);
+#if !defined(CCLI_FLAG_NO_HELP) || !defined(CCLI_FLAG_NO_VERBOSE)
     const __CCliBaseDefInfo base_flags = __c_cli_get_base_flags();
+#endif
     struct __CCliAlignSizes aligns = {0};
 
     __c_cli_find_correct_align(&aligns, defs, n_defs);
+#if !defined(CCLI_FLAG_NO_HELP) || !defined(CCLI_FLAG_NO_VERBOSE)
     __c_cli_find_correct_align(&aligns, base_flags.addr, base_flags.size);
+#endif
 
     fprintf(out, "usge %s [opts]:" CCLI_END_LINE, prog_name);
 
     //user defs
     __c_cli_print_defs_help(defs, n_defs, &aligns, out);
 
+#if !defined(CCLI_FLAG_NO_HELP) || !defined(CCLI_FLAG_NO_VERBOSE)
     //base defs
     __c_cli_print_defs_help(base_flags.addr, base_flags.size, &aligns, out);
+#endif
 }
 
 CCLI_PREFIX size_t __c_cli_write_all_args(
@@ -1114,12 +1127,14 @@ CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(verbose, args, ctx)
     return CCliActionOK;
 }
 
+#ifndef CCLI_FLAG_NO_HELP
 CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(help, args, ctx)
 {
     (void) ctx;
     args->help= true;
     return CCliActionOK;
 }
+#endif // !CCLI_FLAG_NO_HELP
 #endif //!CCLI_DEPLOY
 
 CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(__ignore_flag, args, ctx)
@@ -1139,10 +1154,12 @@ CCLI_PARSE_INTEGER_TEMPLATE(int16_t)
 CCLI_PARSE_INTEGER_TEMPLATE(int32_t)
 CCLI_PARSE_INTEGER_TEMPLATE(int64_t)
 
+#if !defined(CCLI_FLAG_NO_HELP) || !defined(CCLI_FLAG_NO_VERBOSE)
 CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void)
 {
     static const CCliArgDef base_flags[] =
     {
+#ifndef CCLI_FLAG_NO_VERBOSE
         { //--verbose, -v
             .f_long = CCLI_LONG_FLAG(verbose),
             .f_short = CCLI_SHORT_FLAG(v),
@@ -1150,7 +1167,9 @@ CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void)
             .f_description = "print verbose output",
             .f_parser = CCLI_PARSER_NAME(verbose),
         },
+#endif // !CCLI_FLAG_NO_VERBOSE
 
+#ifndef CCLI_FLAG_NO_HELP
         {//--help, -h
             .f_long = CCLI_LONG_FLAG(help),
             .f_short = CCLI_SHORT_FLAG(h),
@@ -1158,10 +1177,12 @@ CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void)
             .f_description = "print this help",
             .f_parser = CCLI_PARSER_NAME(help),
         },
+#endif // !CCLI_FLAG_NO_HELP
     };
 
     return (__CCliBaseDefInfo) {.addr = base_flags, .size = CCLI_ARRAYSIZE(base_flags)};
 }
+#endif
 
 #ifdef CCLI_DEPLOY
 CCLI_PREFIX bool c_cli_parse(
@@ -1173,7 +1194,9 @@ CCLI_PREFIX bool c_cli_parse(
         CCliDefaultSetter def_set)
 {
     const char* input;
+#if !defined(CCLI_FLAG_NO_HELP) || !defined(CCLI_FLAG_NO_VERBOSE)
     const __CCliBaseDefInfo base_flags = __c_cli_get_base_flags();
+#endif
     const char* prog_name = __c_cli_get_prog_name(argv[0]);
     CCliParseCtx ctx = {
         .i=NULL,
@@ -1193,12 +1216,14 @@ CCLI_PREFIX bool c_cli_parse(
             case CCliCheckInputDefsRet_Error: return false;
         }
 
+#if !defined(CCLI_FLAG_NO_HELP) || !defined(CCLI_FLAG_NO_VERBOSE)
         switch(__c_cli_check_input_defs(input, base_flags.addr, base_flags.size, args, &ctx))
         {
             case CCliCheckInputDefsRet_Found: continue;
             case CCliCheckInputDefsRet_NotFound: break;
             case CCliCheckInputDefsRet_Error: return false;
         }
+#endif
 
         fprintf(stderr, "%s: unrecognized flag: %s" CCLI_END_LINE, prog_name, input);
     }
