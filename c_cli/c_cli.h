@@ -1014,7 +1014,7 @@ CCLI_PREFIX void __c_cli_print_defs_help(
     for(size_t i=0; i<n_defs; i++)
     {
         size_t written=0, to_write;
-        to_write = CCLI_CHARS_IN_TAB * aligns->s_to_l;
+        to_write = CCLI_CHARS_IN_TAB * (aligns->s_to_l + 1);
         def = &defs[i];
 
         fprintf(out, CCLI_2_TAB);
@@ -1028,16 +1028,18 @@ CCLI_PREFIX void __c_cli_print_defs_help(
         }
 
         written =0;
-        to_write = CCLI_CHARS_IN_TAB * aligns->l_to_d;
+        to_write = CCLI_CHARS_IN_TAB * (aligns->l_to_d+1);
+
         fprintf(out, CCLI_1_TAB);
+
         written += fprintf(out, "%s ", def->f_short);                       // -h
         written += __c_cli_fprint_all_args(out, def->f_args);               // [...]
+
         while(written < to_write)
         {
             written += fprintf(out, " ");                                   // short padding
         }
 
-        fprintf(out, CCLI_1_TAB"%s", def->f_description);                   // "description"
         fprintf(out, CCLI_END_LINE);
     }
 }
