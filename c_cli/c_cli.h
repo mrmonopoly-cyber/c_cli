@@ -1045,6 +1045,9 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
     {
         user_def = &defs[j];
 
+        if(user_def->f_long) assert(strchr(user_def->f_long, ' ') == NULL);
+        if(user_def->f_short) assert(strchr(user_def->f_short, ' ') == NULL);
+
         if(!strcmp(user_def->f_long, input) || !strcmp(user_def->f_short, input))
         {
             act_res = user_def->f_parser(args, ctx);
