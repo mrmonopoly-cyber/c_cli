@@ -630,7 +630,7 @@
 
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 0U )
-#define CCLI_MINOR      ( (const uint32_t) 1U )
+#define CCLI_MINOR      ( (const uint32_t) 2U )
 #define CCLI_PATCH      ( (const uint32_t) 0U )
 
 //flag parsers
