@@ -846,27 +846,6 @@ CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void);
 CCLI_PREFIX size_t __c_cli_f_writer(void* f, char* fmt, ...);
 CCLI_PREFIX size_t __c_cli_s_writer(void* f, char* fmt, ...);
 
-CCLI_PREFIX size_t __c_cli_fprint_all_args(
-        FILE* const restrict out,
-        const CCliArgSpec* const restrict f_args);
-
-CCLI_PREFIX size_t __c_cli_sprint_all_args(
-        char* const restrict out,
-        const CCliArgSpec* const restrict f_args);
-
-CCLI_PREFIX void __c_cli_print_defs_help(
-        const CCliArgDef* const restrict defs,
-        const size_t n_defs,
-        struct __CCliAlignSizes* aligns,
-        FILE* const restrict out);
-
-CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
-        const char* const restrict input,
-        const CCliArgDef* defs,
-        const size_t n_defs,
-        struct CCliUserArgs* const restrict args,
-        CCliParseCtx* const restrict ctx);
-
 CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(verbose, args, ctx);
 CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(help, args, ctx);
 
