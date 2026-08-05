@@ -631,7 +631,7 @@
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 0U )
 #define CCLI_MINOR      ( (const uint32_t) 3U )
-#define CCLI_PATCH      ( (const uint32_t) 0U )
+#define CCLI_PATCH      ( (const uint32_t) 1U )
 
 //flag parsers
 
@@ -1063,6 +1063,7 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
 
         if(!strcmp(user_def->f_long, input) || !strcmp(user_def->f_short, input))
         {
+            assert(user_def->f_parser);
             act_res = user_def->f_parser(args, ctx);
 
             if(act_res == CCliActionOK)
