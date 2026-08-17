@@ -630,7 +630,7 @@
 
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 0U )
-#define CCLI_MINOR      ( (const uint32_t) 3U )
+#define CCLI_MINOR      ( (const uint32_t) 4U )
 #define CCLI_PATCH      ( (const uint32_t) 1U )
 
 //flag parsers
@@ -759,6 +759,9 @@ c_cli_parse_nex_arg_str(void* const restrict ctx, const char** out);
 
 CCLI_PREFIX CCliActionReturn
 c_cli_parse_nex_arg_dig(void* const restrict ctx, size_t* const restrict out);
+
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_next_arg_bool(void* const restrict ctx, bool* const restrict out);
 
 CCLI_PREFIX CCliActionReturn
 c_cli_parse_next_arg_uint8_t(void* const restrict ctx, uint8_t* const restrict out);
@@ -1342,4 +1345,63 @@ CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_dig(
 
     return CCliActionMissingInput;
 }
+
+CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_bool(
+        void* const restrict ctx,
+        size_t* const restrict out)
+{
+    CCliActionReturn res = CCliActionMissingInput;
+    const char* raw_arg = c_cli_next_arg(ctx);
+
+    if(!raw_arg)
+    {
+        res = CCliActionMissingInput;
+    }
+    else if(!strcmp(raw_arg, "true") || !strcmp(raw_arg, "TRUE"))
+    {
+        res = CCliActionOK;
+        *out = true;
+    }
+    else if(!strcmp(raw_arg, "false") || !strcmp(raw_arg, "FALSE"))
+    {
+        res = CCliActionOK;
+        *out = false;
+    }
+    else
+    {
+        res = CCliActionInvalidInput;
+    }
+
+    return res;
+}
+
+CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_bool(
+        void* const restrict ctx,
+        bool* const restrict out)
+{
+    CCliActionReturn res = CCliActionMissingInput;
+    const char* raw_arg = c_cli_next_arg(ctx);
+
+    if(!raw_arg)
+    {
+        res = CCliActionMissingInput;
+    }
+    else if(!strcmp(raw_arg, "true") || !strcmp(raw_arg, "TRUE"))
+    {
+        *out = true;
+        res = CCliActionOK;
+    }
+    else if(!strcmp(raw_arg, "false") || !strcmp(raw_arg, "FALSE"))
+    {
+        *out = false;
+        res = CCliActionOK;
+    }
+    else
+    {
+        res = CCliActionMissingInput;
+    }
+
+    return res;
+}
+
 #endif // CCLI_DEPLOY
