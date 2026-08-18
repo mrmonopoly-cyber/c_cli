@@ -596,6 +596,10 @@
 #define CCLI_PREFIX static inline
 #endif // !CCLI_PREFIX
 
+#ifndef CCLI_ARG_LIST_SEPARATOR
+#define CCLI_ARG_LIST_SEPARATOR ','
+#endif // CCLI_ARG_LIST_SEPARATOR
+
 #ifndef CCLI_MAX_LEN_PROG_NAME
 #define CCLI_MAX_LEN_PROG_NAME 64
 #endif // !CCLI_MAX_LEN_PROG_NAME
@@ -629,9 +633,9 @@
 #define CCLI_NO_ARG {{NULL, 0}}
 
 //c_cli version
-#define CCLI_MAJOR      ( (const uint32_t) 0U )
-#define CCLI_MINOR      ( (const uint32_t) 4U )
-#define CCLI_PATCH      ( (const uint32_t) 1U )
+#define CCLI_MAJOR      ( (const uint32_t) 1U )
+#define CCLI_MINOR      ( (const uint32_t) 0U )
+#define CCLI_PATCH      ( (const uint32_t) 0U )
 
 //flag parsers
 
@@ -695,6 +699,12 @@ typedef enum
     CCliActionInvalidInput,
 }CCliActionReturn;
 
+typedef enum
+{
+    CCliFlagAttribute_None = 0,
+    CCliFlagAttribute_ArgsList = 1 << 0,
+}CCliFlagAttribute;
+
 struct CCliUserArgs;
 
 typedef CCliActionReturn (*CCliParser)(
@@ -709,14 +719,17 @@ typedef struct{
 }CCliArgSpec;
 
 typedef struct{
+    const uint8_t f_attributes;
     const char* f_long;
     const char* f_short;
-    const CCliArgSpec f_args[CCLI_MAX_NUM_ARGS];
     char* f_description;
     const CCliParser f_parser;
+    const CCliArgSpec f_args[CCLI_MAX_NUM_ARGS];
 }CCliArgDef;
 
 typedef struct CCliParseCtx{
+    uint8_t attributes;
+    bool list_continue;
     int* i;
     int argc;
     char **argv;
@@ -751,7 +764,7 @@ CCLI_PREFIX const char* c_cli_bool_to_str(const bool val);
 CCLI_PREFIX const char* c_cli_str_arg_to_str(const char* const restrict arg);
 
 //parsing general utility functions
-CCLI_PREFIX const char* c_cli_next_arg(void* const restrict ctx);
+CCLI_PREFIX const char* c_cli_next_arg(CCliParseCtx* const restrict ctx);
 
 //parsing specialized utility functions
 CCLI_PREFIX CCliActionReturn
@@ -1054,12 +1067,14 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
         CCliParseCtx* const restrict ctx
         )
 {
+    CCliCheckInputDefsRet res = CCliCheckInputDefsRet_NotFound;
     const CCliArgDef* user_def;
     CCliActionReturn act_res = CCliActionOK;
 
     for(size_t j=0; j<n_defs; j++)
     {
         user_def = &defs[j];
+        ctx->attributes = user_def->f_attributes;
 
         if(user_def->f_long) assert(strchr(user_def->f_long, ' ') == NULL);
         if(user_def->f_short) assert(strchr(user_def->f_short, ' ') == NULL);
@@ -1067,38 +1082,48 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
         if(!strcmp(user_def->f_long, input) || !strcmp(user_def->f_short, input))
         {
             assert(user_def->f_parser);
-            act_res = user_def->f_parser(args, ctx);
-
-            if(act_res == CCliActionOK)
+            do
             {
-                return CCliCheckInputDefsRet_Found;
-            }
-            switch (act_res)
-            {
-                case CCliActionOK:
-                    assert(0 && "unreachable");
-                    break;
-                case CCliActionMissingInput:
-                    {
-                        fprintf(stderr, "missing args for flag %s OR %s, expected: ",
-                                user_def->f_long, user_def->f_short);
-                    }
-                    break;
-                case CCliActionInvalidInput:
-                    {
-                        fprintf(stderr, "invalid arg %s for flag %s OR %s, expected: ",
-                                ctx->argv[*ctx->i], user_def->f_long, user_def->f_short);
-                    }
-                    break;
-            }
+                ctx->list_continue = false;
+                act_res = user_def->f_parser(args, ctx);
 
-            __c_cli_fprint_all_args(stderr, user_def->f_args);
-            fprintf(stderr, "\n");
-            return CCliCheckInputDefsRet_Error;
+                if(act_res == CCliActionOK)
+                {
+                    res = CCliCheckInputDefsRet_Found;
+                }
+                else
+                {
+                    switch (act_res)
+                    {
+                        case CCliActionOK:
+                            assert(0 && "unreachable");
+                            break;
+                        case CCliActionMissingInput:
+                            {
+                                fprintf(stderr, "missing args for flag %s OR %s, expected: ",
+                                        user_def->f_long, user_def->f_short);
+                            }
+                            break;
+                        case CCliActionInvalidInput:
+                            {
+                                fprintf(stderr, "invalid arg %s for flag %s OR %s, expected: ",
+                                        ctx->argv[*ctx->i], user_def->f_long, user_def->f_short);
+                            }
+                            break;
+                    }
+
+                    __c_cli_fprint_all_args(stderr, user_def->f_args);
+                    fprintf(stderr, "\n");
+                    res = CCliCheckInputDefsRet_Error;
+                    goto end;
+                }
+            }
+            while(user_def->f_attributes & CCliFlagAttribute_ArgsList && ctx->list_continue);
         }
     }
 
-    return CCliCheckInputDefsRet_NotFound;
+end:
+    return res;
 }
 
 CCLI_PREFIX const char* __c_cli_get_prog_name(const char* const restrict argv_0)
@@ -1203,6 +1228,7 @@ CCLI_PREFIX bool c_cli_parse(
 #endif
     const char* prog_name = __c_cli_get_prog_name(argv[0]);
     CCliParseCtx ctx = {
+        .attributes = 0,
         .i=NULL,
         .argc = argc,
         .argv = argv,
@@ -1304,16 +1330,28 @@ CCLI_PREFIX const char* c_cli_str_arg_to_str(const char* const restrict arg)
 
 //parsing general utility functions
 
-CCLI_PREFIX const char* c_cli_next_arg(void* const restrict ctx)
+CCLI_PREFIX const char* c_cli_next_arg(CCliParseCtx* const restrict ctx)
 {
+    char* res = NULL;
     CCliParseCtx* p_ctx = ctx;
+
     if(*p_ctx->i < p_ctx->argc)
     {
         (*p_ctx->i)++;
-        return p_ctx->argv[*p_ctx->i];
+        res = p_ctx->argv[*p_ctx->i];
+
+        if(res && ctx->attributes & CCliFlagAttribute_ArgsList)
+        {
+            size_t len = strlen(res);
+            if(res[len-1] == CCLI_ARG_LIST_SEPARATOR)
+            {
+                ctx->list_continue = true;
+                res[len-1] = '\0';
+            }
+        }
     }
 
-    return NULL;
+    return res;
 }
 
 //parsing specialized utility functions

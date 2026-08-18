@@ -54,10 +54,16 @@ static bool tester_compile()
 static bool tester_run()
 {
     Cmd cmd = {0};
+    TeRunArgs run_args = te_run_flags();
 
     nob_log(INFO, "running test: %s", STR(TEST_TO_RUN));
 
     cmd_append(&cmd, BUILD_DIR O_FILE);
+
+    for(size_t i=0; i<run_args.n_data; i++)
+    {
+        cmd_append(&cmd, run_args.data[i]);
+    }
 
     return cmd_run(&cmd);
 }
