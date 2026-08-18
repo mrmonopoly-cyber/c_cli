@@ -56,5 +56,5 @@ static inline bool parse_args(Args* args, const int argc, char** argv)
 
 CCLI_PARSER_DECLARE_FULL(very_long_flag, args, ctx)
 {
-    return c_cli_parse_nex_arg_str(ctx, &args->path);
+    return c_cli_parse_next_arg_str(ctx, &args->path);
 }

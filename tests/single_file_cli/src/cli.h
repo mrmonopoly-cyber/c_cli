@@ -84,7 +84,7 @@ void cli_print_args(const CCliUserArgs* const restrict args)
 
 CLI_PREFIX CCLI_PARSER_DECLARE_FULL(path, args, ctx)
 {
-    return c_cli_parse_nex_arg_str(ctx, &args->path);
+    return c_cli_parse_next_arg_str(ctx, &args->path);
 }
 
 CLI_PREFIX CCLI_PARSER_DECLARE_FULL(test, args, ctx)
@@ -92,7 +92,7 @@ CLI_PREFIX CCLI_PARSER_DECLARE_FULL(test, args, ctx)
     CCliActionReturn res;
 
     if(
-            (res = c_cli_parse_nex_arg_str(ctx, &args->test.name)) != CCliActionOK ||
+            (res = c_cli_parse_next_arg_str(ctx, &args->test.name)) != CCliActionOK ||
             (res = c_cli_parse_next_arg_uint8_t(ctx, &args->test.arg)) != CCliActionOK
       )
     {

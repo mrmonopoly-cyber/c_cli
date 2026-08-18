@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "nob.h"
 #include "test_interface.h"
@@ -86,8 +87,46 @@ static int test_runner()
 }
 #endif /* ifdef TEST_TO_RUN */
 
+static int run_test(const char* const restrict tester_name, const char* const restrict test_name)
+{
+    Cmd cmd = {0};
+    int res =0;
+
+    nob_log(INFO, "preparing test: %s", test_name);
+
+    nob_cc(&cmd);
+    nob_cmd_append(&cmd, temp_sprintf("-DTEST_TO_RUN=%s", test_name));
+    nob_cc_inputs(&cmd, temp_sprintf("%s.c", tester_name));
+    nob_cc_output(&cmd, tester_name);
+
+    if(!cmd_run(&cmd))
+    {
+        fprintf(stderr, "failed compiling tests runner for %s\n", test_name);
+        res=1;
+        goto end;
+    }
+
+    cmd_append(&cmd, temp_sprintf("./%s", tester_name));
+    if(!cmd_run(&cmd))
+    {
+        fprintf(stderr, "failed running tests runner for %s\n", test_name);
+        res=1;
+        goto end;
+    }
+
+    nob_cc(&cmd);
+    nob_cc_inputs(&cmd, temp_sprintf("%s.c", tester_name));
+    nob_cc_output(&cmd, tester_name);
+
+    res = cmd_run(&cmd);
+
+end:
+    return res;
+}
+
 static int test_selection(int argc, char** argv)
 {
+    int res = 1;
     GO_REBUILD_URSELF(argc, argv);
     const char* tester_name = temp_file_name(argv[0]);
 
@@ -101,35 +140,44 @@ static int test_selection(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    for(int i=1; i<argc; i++)
+    if(!strcmp(argv[1], "--all"))
     {
-        const char* test_name = argv[i];
-        nob_log(INFO, "preparing test: %s", test_name);
+        Dir_Entry dir = {0};
 
-        nob_cc(&cmd);
-        nob_cmd_append(&cmd, temp_sprintf("-DTEST_TO_RUN=%s", test_name));
-        nob_cc_inputs(&cmd, temp_sprintf("%s.c", tester_name));
-        nob_cc_output(&cmd, tester_name);
+        if(!(res = dir_entry_open(".", &dir))) goto end;
 
-        if(!cmd_run(&cmd))
+        while(dir_entry_next(&dir))
         {
-            fprintf(stderr, "failed compiling tests runner for %s\n", test_name);
-            continue;
+            if(
+                    get_file_type(dir.name) == FILE_DIRECTORY &&
+                    strcmp(dir.name, "build") &&
+                    dir.name[0] != '.'
+              )
+            {
+                if(!run_test(tester_name, dir.name))
+                {
+                    fprintf(stderr, "failed running test: %s\n", dir.name);
+                }
+            }
         }
 
-        cmd_append(&cmd, temp_sprintf("./%s", tester_name));
-        if(!cmd_run(&cmd))
+        dir_entry_close(dir);
+        res = 0;
+    }
+    else
+    {
+        for(int i=1; i<argc; i++)
         {
-            fprintf(stderr, "failed running tests runner for %s\n", test_name);
-            continue;
+            if(!run_test(tester_name, argv[i]))
+            {
+                fprintf(stderr, "failed running test: %s\n", argv[i]);
+            }
         }
+        res =0;
     }
 
-    nob_cc(&cmd);
-    nob_cc_inputs(&cmd, temp_sprintf("%s.c", tester_name));
-    nob_cc_output(&cmd, tester_name);
-
-    return cmd_run(&cmd);
+end:
+    return res;
 }
 
 static bool clean_dir(Walk_Entry entry)

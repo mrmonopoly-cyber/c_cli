@@ -386,6 +386,8 @@
  * - base flags                : --help/-h, --verbose/-v are already defined by the library
  * - user default flag         : optional possibility to define custom default flags.
  *                               Default is none and triggers printing help on stderr.
+ * - flag attributes           : Allow the user to define specific characteristic of each flag.
+ *                               Look at CCliFlagAttribute
  * - name detection            : the cli's name will be equivalent of the program that is using it
  * - invalid input flag        : invalid user flags are auto detected and
  *                               printed as warning to the screen
@@ -463,7 +465,7 @@
  *     CCliActionReturn res;
  * 
  *     if(
- *             (res = c_cli_parse_nex_arg_str(ctx, &args->test.name)) != CCliActionOK ||
+ *             (res = c_cli_parse_next_arg_str(ctx, &args->test.name)) != CCliActionOK ||
  *             (res = c_cli_parse_next_arg_uint8_t(ctx, &args->test.arg)) != CCliActionOK
  *       )
  *     {
@@ -563,7 +565,7 @@
  * 
  * CLI_PREFIX CCLI_PARSER_DECLARE_FULL(path, args, ctx)
  * {
- *     return c_cli_parse_nex_arg_str(ctx, &args->path);
+ *     return c_cli_parse_next_arg_str(ctx, &args->path);
  * }
  * 
  * CLI_PREFIX CCLI_PARSER_DECLARE_FULL(test, args, ctx)
@@ -571,7 +573,7 @@
  *     CCliActionReturn res;
  * 
  *     if(
- *             (res = c_cli_parse_nex_arg_str(ctx, &args->test.name)) != CCliActionOK ||
+ *             (res = c_cli_parse_next_arg_str(ctx, &args->test.name)) != CCliActionOK ||
  *             (res = c_cli_parse_next_arg_uint8_t(ctx, &args->test.arg)) != CCliActionOK
  *       )
  *     {
@@ -635,7 +637,7 @@
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 1U )
 #define CCLI_MINOR      ( (const uint32_t) 0U )
-#define CCLI_PATCH      ( (const uint32_t) 0U )
+#define CCLI_PATCH      ( (const uint32_t) 1U )
 
 //flag parsers
 
@@ -657,7 +659,7 @@ CCLI_PARSE_NEXT_ARG_DECLARE(TYPE)                                               
 {                                                                                                 \
     size_t res =0;                                                                                \
     const size_t type_max_val = (const TYPE) (~0);                                                \
-    const CCliActionReturn act_ret = c_cli_parse_nex_arg_dig(ctx, &res);                          \
+    const CCliActionReturn act_ret = c_cli_parse_next_arg_dig(ctx, &res);                          \
                                                                                                   \
     if(act_ret != CCliActionOK) return act_ret;                                                   \
                                                                                                   \
@@ -699,10 +701,15 @@ typedef enum
     CCliActionInvalidInput,
 }CCliActionReturn;
 
+typedef uint32_t CCliFlagAttribute_type;
 typedef enum
 {
+    //No special attributes: default behaviour
     CCliFlagAttribute_None = 0,
+
+    //the flag supports a continuous sequence of arguments divided by CCLI_ARG_LIST_SEPARATOR
     CCliFlagAttribute_ArgsList = 1 << 0,
+
 }CCliFlagAttribute;
 
 struct CCliUserArgs;
@@ -719,7 +726,7 @@ typedef struct{
 }CCliArgSpec;
 
 typedef struct{
-    const uint8_t f_attributes;
+    const CCliFlagAttribute_type f_attributes;
     const char* f_long;
     const char* f_short;
     char* f_description;
@@ -768,10 +775,10 @@ CCLI_PREFIX const char* c_cli_next_arg(CCliParseCtx* const restrict ctx);
 
 //parsing specialized utility functions
 CCLI_PREFIX CCliActionReturn
-c_cli_parse_nex_arg_str(void* const restrict ctx, const char** out);
+c_cli_parse_next_arg_str(void* const restrict ctx, const char** out);
 
 CCLI_PREFIX CCliActionReturn
-c_cli_parse_nex_arg_dig(void* const restrict ctx, size_t* const restrict out);
+c_cli_parse_next_arg_dig(void* const restrict ctx, size_t* const restrict out);
 
 CCLI_PREFIX CCliActionReturn
 c_cli_parse_next_arg_bool(void* const restrict ctx, bool* const restrict out);
@@ -799,6 +806,12 @@ c_cli_parse_next_arg_int32_t(void* const restrict ctx, int32_t* const restrict o
 
 CCLI_PREFIX CCliActionReturn
 c_cli_parse_next_arg_int64_t(void* const restrict ctx, int64_t* const restrict out);
+
+//static checks
+
+#if CCLI_ARG_LIST_SEPARATOR == ' '
+#error "CCLI_ARG_LIST_SEPARATOR cannot be a ' '"
+#endif
 
 
 //C_CLI INTERNAL DEFS ============================================================================
@@ -891,7 +904,7 @@ CCLI_PREFIX void __c_cli_print_help_full(
     __c_cli_find_correct_align(&aligns, base_flags.addr, base_flags.size);
 #endif
 
-    fprintf(out, "usge %s [opts]:" CCLI_END_LINE, prog_name);
+    fprintf(out, "usage %s [opts]:" CCLI_END_LINE, prog_name);
 
     //user defs
     __c_cli_print_defs_help(defs, n_defs, &aligns, out);
@@ -1021,6 +1034,9 @@ CCLI_PREFIX void __c_cli_print_defs_help(
         to_write = CCLI_CHARS_IN_TAB * (aligns->s_to_l + 1);
         def = &defs[i];
 
+        if(def->f_long) assert(strchr(def->f_long, ' ') == NULL && "flags cannot contain spaces");
+        if(def->f_short) assert(strchr(def->f_short, ' ') == NULL && "flags cannot contain spaces");
+
         fprintf(out, CCLI_2_TAB);
 
         if(def->f_long)
@@ -1076,8 +1092,8 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
         user_def = &defs[j];
         ctx->attributes = user_def->f_attributes;
 
-        if(user_def->f_long) assert(strchr(user_def->f_long, ' ') == NULL);
-        if(user_def->f_short) assert(strchr(user_def->f_short, ' ') == NULL);
+        if(user_def->f_long) assert(strchr(user_def->f_long, ' ') == NULL && "flags cannot contain spaces");
+        if(user_def->f_short) assert(strchr(user_def->f_short, ' ') == NULL && "flags cannot contain spaces");
 
         if(!strcmp(user_def->f_long, input) || !strcmp(user_def->f_short, input))
         {
@@ -1356,7 +1372,7 @@ CCLI_PREFIX const char* c_cli_next_arg(CCliParseCtx* const restrict ctx)
 
 //parsing specialized utility functions
 
-CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_str(void* const restrict ctx, const char** out)
+CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_str(void* const restrict ctx, const char** out)
 {
     const char* raw_arg = c_cli_next_arg(ctx);
 
@@ -1369,7 +1385,7 @@ CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_str(void* const restrict ctx, c
     return CCliActionMissingInput;
 }
 
-CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_dig(
+CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_dig(
         void* const restrict ctx,
         size_t* const restrict out)
 {
@@ -1382,35 +1398,6 @@ CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_dig(
     }
 
     return CCliActionMissingInput;
-}
-
-CCLI_PREFIX CCliActionReturn c_cli_parse_nex_arg_bool(
-        void* const restrict ctx,
-        size_t* const restrict out)
-{
-    CCliActionReturn res = CCliActionMissingInput;
-    const char* raw_arg = c_cli_next_arg(ctx);
-
-    if(!raw_arg)
-    {
-        res = CCliActionMissingInput;
-    }
-    else if(!strcmp(raw_arg, "true") || !strcmp(raw_arg, "TRUE"))
-    {
-        res = CCliActionOK;
-        *out = true;
-    }
-    else if(!strcmp(raw_arg, "false") || !strcmp(raw_arg, "FALSE"))
-    {
-        res = CCliActionOK;
-        *out = false;
-    }
-    else
-    {
-        res = CCliActionInvalidInput;
-    }
-
-    return res;
 }
 
 CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_bool(
