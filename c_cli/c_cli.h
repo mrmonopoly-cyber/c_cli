@@ -342,7 +342,6 @@
  *
  *
 */
-#include <stdarg.h>
 #include <assert.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -637,7 +636,7 @@
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 1U )
 #define CCLI_MINOR      ( (const uint32_t) 1U )
-#define CCLI_PATCH      ( (const uint32_t) 1U )
+#define CCLI_PATCH      ( (const uint32_t) 2U )
 
 //flag parsers
 
@@ -750,7 +749,25 @@ typedef struct CCliParseCtx{
 #define CCLI_VERSION_HELPER
 static inline uint32_t c_cli_get_version(void)
 {
-    return ( (uint32_t) (CCLI_MAJOR << 2U) | (CCLI_MINOR << 1U) | (CCLI_PATCH << 0) );
+    union{
+        struct
+        {
+            uint8_t patch;
+            uint8_t minor;
+            uint8_t major;
+        }complex;
+        uint32_t raw;
+    }conv = 
+    {
+        .complex = 
+        {
+            .major = CCLI_MAJOR,
+            .minor = CCLI_MINOR,
+            .patch = CCLI_PATCH,
+        },
+    };
+
+    return conv.raw;
 }
 #endif // !CCLI_VERSION_HELPER
 
@@ -875,8 +892,8 @@ CCLI_PREFIX const char* __c_cli_get_prog_name(const char* const restrict argv_0)
 CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void);
 #endif
 
-CCLI_PREFIX size_t __c_cli_f_writer(void* f, char* fmt, ...);
-CCLI_PREFIX size_t __c_cli_s_writer(void* f, char* fmt, ...);
+CCLI_PREFIX size_t __c_cli_f_writer(void* f, const size_t max_len, char* fmt, ...);
+CCLI_PREFIX size_t __c_cli_s_writer(void* f, const size_t max_len, char* fmt, ...);
 
 #ifndef CCLI_FLAG_NO_VERBOSE
 CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(verbose, args, ctx);
@@ -920,7 +937,8 @@ CCLI_PREFIX size_t __c_cli_write_all_args(
         const CCliArgSpec* const restrict f_args,
         const CCliFlagAttribute_type attributes,
         void* dst,
-        size_t (*writer)(void* dst, char* fmt, ...))
+        const size_t max_len,
+        size_t (*writer)(void* dst, const size_t max_len, char* fmt, ...))
 {
     const CCliArgSpec* arg;
     bool empty = true;
@@ -935,36 +953,38 @@ CCLI_PREFIX size_t __c_cli_write_all_args(
         {
             if(empty)
             {
-                written += writer(dst, "[");
+                written += writer(dst, max_len - written, "[");
                 empty = false;
             }
 
             if(i>0)
             {
-                written += writer(dst, ", ");
+                written += writer(dst, max_len - written, ", ");
             }
 
-            written += writer(dst, "%s:%s", arg->name, c_cli_arg_type_to_str(arg->type));
+            written += writer(dst, max_len - written, "%s:%s", arg->name, c_cli_arg_type_to_str(arg->type));
         }
     }
 
     if(!empty)
     {
-        written += writer(dst, "]");
+        written += writer(dst, max_len - written, "]");
     }
 
     if(attributes & CCliFlagAttribute_ArgsList)
     {
-        written += writer(dst, "...");
+        written += writer(dst, max_len - written, "...");
     }
 
     return written;
 }
 
-CCLI_PREFIX size_t __c_cli_f_writer(void* f, char* fmt, ...)
+CCLI_PREFIX size_t __c_cli_f_writer(void* f, const size_t max_len, char* fmt, ...)
 {
     size_t res;
     va_list vars;
+
+    (void) max_len;
 
     va_start(vars, fmt);
     res = vfprintf(f, fmt, vars);
@@ -973,13 +993,13 @@ CCLI_PREFIX size_t __c_cli_f_writer(void* f, char* fmt, ...)
     return res;
 }
 
-CCLI_PREFIX size_t __c_cli_s_writer(void* f, char* fmt, ...)
+CCLI_PREFIX size_t __c_cli_s_writer(void* f, const size_t max_len, char* fmt, ...)
 {
     size_t res;
     va_list vars;
 
     va_start(vars, fmt);
-    res = vsprintf(f, fmt, vars);
+    res = vsnprintf(f, max_len, fmt, vars);
     va_end(vars);
 
     return res;
@@ -990,15 +1010,16 @@ CCLI_PREFIX size_t __c_cli_fprint_all_args(
         const CCliFlagAttribute_type attributes,
         const CCliArgSpec* const restrict f_args)
 {
-    return __c_cli_write_all_args(f_args, attributes, out, __c_cli_f_writer);
+    return __c_cli_write_all_args(f_args, attributes, out, ~0, __c_cli_f_writer);
 }
 
 CCLI_PREFIX size_t __c_cli_sprint_all_args(
         char* const restrict out,
+        const size_t max_len,
         const CCliFlagAttribute_type attributes,
         const CCliArgSpec* const restrict f_args)
 {
-    return __c_cli_write_all_args(f_args, attributes, out, __c_cli_s_writer);
+    return __c_cli_write_all_args(f_args, attributes, out, max_len, __c_cli_s_writer);
 }
 
 CCLI_PREFIX void __c_cli_find_correct_align(
@@ -1014,12 +1035,17 @@ CCLI_PREFIX void __c_cli_find_correct_align(
     {
         args = defs[i].f_args;
 
-        args_len = __c_cli_write_all_args(args, defs[i].f_attributes, temp_buffer, __c_cli_s_writer);
+        args_len = __c_cli_write_all_args(
+                args,
+                defs[i].f_attributes,
+                temp_buffer,
+                sizeof(temp_buffer),
+                __c_cli_s_writer);
 
         f_len = defs[i].f_short ? strlen(defs[i].f_short) : 0;
         tot_len = args_len + f_len;
         n_tabs = (tot_len / CCLI_CHARS_IN_TAB) + ((tot_len % CCLI_CHARS_IN_TAB) > 0);
-        if(n_tabs > align->l_to_d) align->s_to_l = n_tabs;
+        if(n_tabs > align->s_to_l) align->s_to_l = n_tabs;
 
         f_len = defs[i].f_long ? strlen(defs[i].f_long) : 0;
         tot_len = args_len + f_len;
@@ -1349,7 +1375,7 @@ CCLI_PREFIX const char* c_cli_bool_to_str(const bool val)
 
 CCLI_PREFIX const char* c_cli_str_arg_to_str(const char* const restrict arg)
 {
-    return arg ? arg : "(Nill)";
+    return arg ? arg : "(nil)";
 }
 
 
@@ -1357,24 +1383,31 @@ CCLI_PREFIX const char* c_cli_str_arg_to_str(const char* const restrict arg)
 
 CCLI_PREFIX const char* c_cli_next_arg(CCliParseCtx* const restrict ctx)
 {
-    char* res = NULL;
+    const char* res = NULL;
     CCliParseCtx* p_ctx = ctx;
+    const char separator[2] = 
+    {
+        CCLI_ARG_LIST_SEPARATOR,
+    };
 
     if(*p_ctx->i < p_ctx->argc)
     {
-        (*p_ctx->i)++;
-        res = p_ctx->argv[*p_ctx->i];
+        res = p_ctx->argv[++(*p_ctx->i)];
+        ctx->list_continue = false;
 
-        if(res && ctx->attributes & CCliFlagAttribute_ArgsList)
+        if(
+                (ctx->attributes & CCliFlagAttribute_ArgsList) &&
+                *p_ctx->i + 1 < p_ctx->argc &&
+                !strcmp(p_ctx->argv[*p_ctx->i + 1], separator)
+          )
         {
-            size_t len = strlen(res);
-            if(res[len-1] == CCLI_ARG_LIST_SEPARATOR)
-            {
-                ctx->list_continue = true;
-                res[len-1] = '\0';
-            }
+            ctx->list_continue = true;
+            (*p_ctx->i)++;
         }
+
     }
+
+    printf("__debug res: %s\n", res);
 
     return res;
 }
