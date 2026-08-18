@@ -636,7 +636,7 @@
 
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 1U )
-#define CCLI_MINOR      ( (const uint32_t) 0U )
+#define CCLI_MINOR      ( (const uint32_t) 1U )
 #define CCLI_PATCH      ( (const uint32_t) 1U )
 
 //flag parsers
@@ -845,6 +845,7 @@ CCLI_PREFIX void __c_cli_find_correct_align(
 
 CCLI_PREFIX size_t __c_cli_fprint_all_args(
         FILE* const restrict out,
+        const CCliFlagAttribute_type attributes,
         const CCliArgSpec* const restrict f_args);
 
 CCLI_PREFIX void __c_cli_print_defs_help(
@@ -917,6 +918,7 @@ CCLI_PREFIX void __c_cli_print_help_full(
 
 CCLI_PREFIX size_t __c_cli_write_all_args(
         const CCliArgSpec* const restrict f_args,
+        const CCliFlagAttribute_type attributes,
         void* dst,
         size_t (*writer)(void* dst, char* fmt, ...))
 {
@@ -951,6 +953,11 @@ CCLI_PREFIX size_t __c_cli_write_all_args(
         written += writer(dst, "]");
     }
 
+    if(attributes & CCliFlagAttribute_ArgsList)
+    {
+        written += writer(dst, "...");
+    }
+
     return written;
 }
 
@@ -980,16 +987,18 @@ CCLI_PREFIX size_t __c_cli_s_writer(void* f, char* fmt, ...)
 
 CCLI_PREFIX size_t __c_cli_fprint_all_args(
         FILE* const restrict out,
+        const CCliFlagAttribute_type attributes,
         const CCliArgSpec* const restrict f_args)
 {
-    return __c_cli_write_all_args(f_args, out, __c_cli_f_writer);
+    return __c_cli_write_all_args(f_args, attributes, out, __c_cli_f_writer);
 }
 
 CCLI_PREFIX size_t __c_cli_sprint_all_args(
         char* const restrict out,
+        const CCliFlagAttribute_type attributes,
         const CCliArgSpec* const restrict f_args)
 {
-    return __c_cli_write_all_args(f_args, out, __c_cli_s_writer);
+    return __c_cli_write_all_args(f_args, attributes, out, __c_cli_s_writer);
 }
 
 CCLI_PREFIX void __c_cli_find_correct_align(
@@ -1005,7 +1014,7 @@ CCLI_PREFIX void __c_cli_find_correct_align(
     {
         args = defs[i].f_args;
 
-        args_len = __c_cli_write_all_args(args, temp_buffer, __c_cli_s_writer);
+        args_len = __c_cli_write_all_args(args, defs[i].f_attributes, temp_buffer, __c_cli_s_writer);
 
         f_len = defs[i].f_short ? strlen(defs[i].f_short) : 0;
         tot_len = args_len + f_len;
@@ -1041,13 +1050,13 @@ CCLI_PREFIX void __c_cli_print_defs_help(
 
         if(def->f_long)
         {
-            written += fprintf(out, "%s ", def->f_long);                    // --help
-            written += __c_cli_fprint_all_args(out, def->f_args);           // [...]
+            written += fprintf(out, "%s ", def->f_long);                                // --help
+            written += __c_cli_fprint_all_args(out, def->f_attributes, def->f_args);    // [...]
         }
 
         while(written < to_write)
         {
-            written += fprintf(out, " ");                                   // long padding
+            written += fprintf(out, " ");                                               // long padding
         }
 
         written =0;
@@ -1057,18 +1066,18 @@ CCLI_PREFIX void __c_cli_print_defs_help(
 
         if(def->f_short)
         {
-            written += fprintf(out, "%s ", def->f_short);                   // -h
-            written += __c_cli_fprint_all_args(out, def->f_args);           // [...]
+            written += fprintf(out, "%s ", def->f_short);                               // -h
+            written += __c_cli_fprint_all_args(out, def->f_attributes, def->f_args);    // [...]
         }
 
         while(written < to_write)
         {
-            written += fprintf(out, " ");                                   // short padding
+            written += fprintf(out, " ");                                               // short padding
         }
 
         if(def->f_description)
         {
-            fprintf(out, def->f_description);                               // description
+            fprintf(out, def->f_description);                                           // description
         }
 
         fprintf(out, CCLI_END_LINE);
@@ -1128,7 +1137,7 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
                             break;
                     }
 
-                    __c_cli_fprint_all_args(stderr, user_def->f_args);
+                    __c_cli_fprint_all_args(stderr, user_def->f_attributes, user_def->f_args);
                     fprintf(stderr, "\n");
                     res = CCliCheckInputDefsRet_Error;
                     goto end;
