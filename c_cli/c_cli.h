@@ -349,7 +349,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-#include <stdlib.h>
 
 /*
  * DESCRIPTION:
@@ -635,8 +634,8 @@
 
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 1U )
-#define CCLI_MINOR      ( (const uint32_t) 1U )
-#define CCLI_PATCH      ( (const uint32_t) 2U )
+#define CCLI_MINOR      ( (const uint32_t) 2U )
+#define CCLI_PATCH      ( (const uint32_t) 0U )
 
 //flag parsers
 
@@ -649,23 +648,9 @@
 
 #define CCLI_PARSER_DECLARE(NAME) CCLI_PARSER_DECLARE_FULL(NAME, args, ctx)
 
-#define CCLI_PARSE_NEXT_ARG_DECLARE(TYPE)                                                         \
+#define CCLI_PARSE_NEXT_ARG_DECLARE(TYPE, OUT)                                                    \
 static inline CCliActionReturn c_cli_parse_next_arg_##TYPE(                                       \
-        void* const restrict ctx, TYPE* const restrict out)                                       \
-
-#define CCLI_PARSE_INTEGER_TEMPLATE(TYPE)                                                         \
-CCLI_PARSE_NEXT_ARG_DECLARE(TYPE)                                                                 \
-{                                                                                                 \
-    size_t res =0;                                                                                \
-    const size_t type_max_val = (const TYPE) (~0);                                                \
-    const CCliActionReturn act_ret = c_cli_parse_next_arg_dig(ctx, &res);                          \
-                                                                                                  \
-    if(act_ret != CCliActionOK) return act_ret;                                                   \
-                                                                                                  \
-    if( res > type_max_val) return CCliActionInvalidInput;                                        \
-    *out = (const TYPE) res;                                                                      \
-    return CCliActionOK;                                                                          \
-}                                                                                                 \
+        void* const restrict ctx, TYPE* const restrict OUT)                                       \
 
 //types
 
@@ -741,6 +726,19 @@ typedef struct CCliParseCtx{
     char **argv;
 }CCliParseCtx;
 
+typedef union __DigitData
+{
+    uint8_t u8;
+    uint16_t u16;
+    uint32_t u32;
+    uint64_t u64;
+
+    int8_t s8;
+    int16_t s16;
+    int32_t s32;
+    int64_t s64;
+}Digit;
+
 #endif // !CCLI_TYPES
 
 //declarations
@@ -794,8 +792,16 @@ CCLI_PREFIX const char* c_cli_next_arg(CCliParseCtx* const restrict ctx);
 CCLI_PREFIX CCliActionReturn
 c_cli_parse_next_arg_str(void* const restrict ctx, const char** out);
 
-CCLI_PREFIX CCliActionReturn
-c_cli_parse_next_arg_dig(void* const restrict ctx, size_t* const restrict out);
+CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_udig(
+        void* const restrict ctx,
+        const uint64_t max,
+        Digit* const restrict out);
+
+CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_sdig(
+        void* const restrict ctx,
+        const int64_t min,
+        const int64_t max,
+        Digit* const restrict out);
 
 CCLI_PREFIX CCliActionReturn
 c_cli_parse_next_arg_bool(void* const restrict ctx, bool* const restrict out);
@@ -835,7 +841,7 @@ c_cli_parse_next_arg_int64_t(void* const restrict ctx, int64_t* const restrict o
 
 #ifdef CCLI_DEPLOY
 
-CCLI_DEPLOY
+// CCLI_DEPLOY
 //types
 typedef enum {
     CCliCheckInputDefsRet_Found =0,
@@ -1103,7 +1109,7 @@ CCLI_PREFIX void __c_cli_print_defs_help(
 
         if(def->f_description)
         {
-            fprintf(out, def->f_description);                                           // description
+            fprintf(out, "%s", def->f_description);                                     // description
         }
 
         fprintf(out, CCLI_END_LINE);
@@ -1224,15 +1230,45 @@ CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(__ignore_flag, args, ctx)
     return CCliActionOK;
 }
 
-CCLI_PARSE_INTEGER_TEMPLATE(uint8_t)
-CCLI_PARSE_INTEGER_TEMPLATE(uint16_t)
-CCLI_PARSE_INTEGER_TEMPLATE(uint32_t)
-CCLI_PARSE_INTEGER_TEMPLATE(uint64_t)
+#define __CCLI_PARSE_NEXT_ARG_UNSIGNED_DIGIT_DECLARE_BIT(N_BITS, OUT_PTR)                       \
+CCLI_PARSE_NEXT_ARG_DECLARE(uint##N_BITS##_t, OUT_PTR)                                          \
+{                                                                                               \
+    CCliActionReturn res;                                                                       \
+    Digit dig = {0};                                                                            \
+                                                                                                \
+    if ( !(res = c_cli_parse_next_arg_udig(ctx, UINT##N_BITS##_MAX, &dig)) )                    \
+    {                                                                                           \
+        *(OUT_PTR)= dig.u##N_BITS;                                                              \
+    }                                                                                           \
+                                                                                                \
+    return res;                                                                                 \
+}
 
-CCLI_PARSE_INTEGER_TEMPLATE(int8_t)
-CCLI_PARSE_INTEGER_TEMPLATE(int16_t)
-CCLI_PARSE_INTEGER_TEMPLATE(int32_t)
-CCLI_PARSE_INTEGER_TEMPLATE(int64_t)
+#define __CCLI_PARSE_NEXT_ARG_SIGNED_DIGIT_DECLARE_BIT(N_BITS, OUT_PTR)                         \
+CCLI_PARSE_NEXT_ARG_DECLARE(int##N_BITS##_t, OUT_PTR)                                           \
+{                                                                                               \
+    CCliActionReturn res;                                                                       \
+    Digit dig = {0};                                                                            \
+                                                                                                \
+    if ( !(res = c_cli_parse_next_arg_sdig(ctx, INT##N_BITS##_MIN, INT##N_BITS##_MAX, &dig)) )  \
+    {                                                                                           \
+        *(OUT_PTR) = dig.u##N_BITS;                                                             \
+    }                                                                                           \
+                                                                                                \
+    return res;                                                                                 \
+}
+
+__CCLI_PARSE_NEXT_ARG_UNSIGNED_DIGIT_DECLARE_BIT(8, out)
+__CCLI_PARSE_NEXT_ARG_UNSIGNED_DIGIT_DECLARE_BIT(16, out)
+__CCLI_PARSE_NEXT_ARG_UNSIGNED_DIGIT_DECLARE_BIT(32, out)
+__CCLI_PARSE_NEXT_ARG_UNSIGNED_DIGIT_DECLARE_BIT(64, out)
+
+__CCLI_PARSE_NEXT_ARG_SIGNED_DIGIT_DECLARE_BIT(8, out)
+__CCLI_PARSE_NEXT_ARG_SIGNED_DIGIT_DECLARE_BIT(16, out)
+__CCLI_PARSE_NEXT_ARG_SIGNED_DIGIT_DECLARE_BIT(32, out)
+__CCLI_PARSE_NEXT_ARG_SIGNED_DIGIT_DECLARE_BIT(64, out)
+
+#undef __CCLI_PARSE_NEXT_ARG_DIGIT_DECLARE
 
 #if !defined(CCLI_FLAG_NO_HELP) || !defined(CCLI_FLAG_NO_VERBOSE)
 CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void)
@@ -1407,8 +1443,6 @@ CCLI_PREFIX const char* c_cli_next_arg(CCliParseCtx* const restrict ctx)
 
     }
 
-    printf("__debug res: %s\n", res);
-
     return res;
 }
 
@@ -1427,19 +1461,91 @@ CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_str(void* const restrict ctx, 
     return CCliActionMissingInput;
 }
 
-CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_dig(
+CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_udig(
         void* const restrict ctx,
-        size_t* const restrict out)
+        const uint64_t max,
+        Digit* const restrict out)
 {
     const char* raw_arg = c_cli_next_arg(ctx);
+    uint64_t res = {0};
 
-    if(raw_arg)
+    if(!raw_arg) return CCliActionMissingInput;
+
+
+    while(*raw_arg)
     {
-        *out = strtoull(raw_arg, NULL, 10);
-        return CCliActionOK;
+        char c = *raw_arg;
+        uint64_t digit = c - '0';
+
+        if(c < '0' || c > '9') return CCliActionInvalidInput;
+
+        if (
+                ( res > max / 10 ) ||
+                ( res == max / 10 && digit > max % 10 )
+
+           )
+        {
+            return CCliActionInvalidInput;
+        }
+        res = res*10 + digit;
+
+        raw_arg++;
     }
 
-    return CCliActionMissingInput;
+
+    out->u64 = res;
+
+    return CCliActionOK;
+}
+
+CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_sdig(
+        void* const restrict ctx,
+        const int64_t min,
+        const int64_t max,
+        Digit* const restrict out)
+{
+    const char* raw_arg = c_cli_next_arg(ctx);
+    int64_t res = {0};
+    int neg = 1;
+
+    if(!raw_arg) return CCliActionMissingInput;
+
+    if(*raw_arg == '-')
+    {
+        neg = -1;
+        raw_arg++;
+    }
+
+
+    while(*raw_arg)
+    {
+        char c = *raw_arg;
+        int64_t digit = neg * (c - '0');
+
+        if(c < '0' || c > '9') return CCliActionInvalidInput;
+
+
+        if (
+                ( res < min / 10 ) ||
+                ( res == min / 10 && digit < min % 10 ) ||
+
+                ( res > max / 10 ) ||
+                ( res == max / 10 && digit > max % 10 )
+
+           )
+        {
+            return CCliActionInvalidInput;
+        }
+
+        res = res*10 + digit;
+
+        raw_arg++;
+    }
+
+
+    out->u64 = res;
+
+    return CCliActionOK;
 }
 
 CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_bool(
