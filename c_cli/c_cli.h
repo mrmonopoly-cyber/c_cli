@@ -633,8 +633,8 @@
 #define CCLI_NO_ARG {{NULL, 0}}
 
 //c_cli version
-#define CCLI_MAJOR      ( (const uint32_t) 2U )
-#define CCLI_MINOR      ( (const uint32_t) 3U )
+#define CCLI_MAJOR      ( (const uint32_t) 3U )
+#define CCLI_MINOR      ( (const uint32_t) 0U )
 #define CCLI_PATCH      ( (const uint32_t) 0U )
 
 //flag parsers
@@ -1354,13 +1354,7 @@ CCLI_PREFIX bool c_cli_parse(
         return false;
     }
 
-    for(size_t i=0; i<sizeof(*args); i++)
-    {
-        if( ((const char*)args)[i] )
-        {
-            return true;
-        }
-    }
+    if(found_something) return true;
 
     if(def_set)
     {
