@@ -634,8 +634,8 @@
 
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 1U )
-#define CCLI_MINOR      ( (const uint32_t) 2U )
-#define CCLI_PATCH      ( (const uint32_t) 1U )
+#define CCLI_MINOR      ( (const uint32_t) 3U )
+#define CCLI_PATCH      ( (const uint32_t) 0U )
 
 //flag parsers
 
@@ -643,14 +643,10 @@
 
 #define CCLI_PARSER_DECLARE_FULL(NAME, args, ctx)                                                 \
     CCliActionReturn CCLI_PARSER_NAME(NAME)(                                                      \
-            struct CCliUserArgs* const restrict args,                                             \
+            CCliUserArgsInt* const restrict args,                                                 \
             void* const restrict ctx)                                                             \
 
 #define CCLI_PARSER_DECLARE(NAME) CCLI_PARSER_DECLARE_FULL(NAME, args, ctx)
-
-#define CCLI_PARSE_NEXT_ARG_DECLARE(TYPE, OUT)                                                    \
-static inline CCliActionReturn c_cli_parse_next_arg_##TYPE(                                       \
-        void* const restrict ctx, TYPE* const restrict OUT)                                       \
 
 //types
 
@@ -697,12 +693,13 @@ typedef enum
 }CCliFlagAttribute;
 
 struct CCliUserArgs;
+typedef struct CCliUserArgs CCliUserArgsInt;
 
-typedef CCliActionReturn (*CCliParser)(
-        struct CCliUserArgs* const restrict args,
-        void* const restrict ctx);
+typedef CCliActionReturn
+(*CCliParser)(CCliUserArgsInt* const restrict args, void* const restrict ctx);
 
-typedef void (*CCliDefaultSetter)(struct CCliUserArgs* const restrict args);
+typedef void
+(*CCliDefaultSetter)(CCliUserArgsInt* const restrict args);
 
 typedef struct{
     const char* name;
@@ -743,36 +740,12 @@ typedef union __CCliDigitData
 
 //declarations
 
-#ifndef CCLI_VERSION_HELPER
-#define CCLI_VERSION_HELPER
-static inline uint32_t c_cli_get_version(void)
-{
-    union{
-        struct
-        {
-            uint8_t patch;
-            uint8_t minor;
-            uint8_t major;
-        }complex;
-        uint32_t raw;
-    }conv = 
-    {
-        .complex = 
-        {
-            .major = CCLI_MAJOR,
-            .minor = CCLI_MINOR,
-            .patch = CCLI_PATCH,
-        },
-    };
+CCLI_PREFIX uint32_t c_cli_get_version(void);
 
-    return conv.raw;
-}
-#endif // !CCLI_VERSION_HELPER
-
-static bool c_cli_parse(
+CCLI_PREFIX bool c_cli_parse(
         const CCliArgDef* defs,
         const size_t n_defs,
-        struct CCliUserArgs* const restrict args,
+        CCliUserArgsInt* const restrict args,
         const int argc,
         char** argv,
         CCliDefaultSetter def_set);
@@ -837,7 +810,7 @@ c_cli_parse_next_arg_int64_t(void* const restrict ctx, int64_t* const restrict o
 #endif
 
 
-//C_CLI INTERNAL DEFS ============================================================================
+//C_CLI IMPLEMENTATION============================================================================
 
 #ifdef CCLI_DEPLOY
 
@@ -888,7 +861,7 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
         const char* const restrict input,
         const CCliArgDef* defs,
         const size_t n_defs,
-        struct CCliUserArgs* const restrict args,
+        CCliUserArgsInt* const restrict args,
         CCliParseCtx* const restrict ctx
         );
 
@@ -1120,7 +1093,7 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
         const char* const restrict input,
         const CCliArgDef* defs,
         const size_t n_defs,
-        struct CCliUserArgs* const restrict args,
+        CCliUserArgsInt* const restrict args,
         CCliParseCtx* const restrict ctx
         )
 {
@@ -1231,10 +1204,11 @@ CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(__ignore_flag, args, ctx)
 }
 
 #define __CCLI_PARSE_NEXT_ARG_UNSIGNED_DIGIT_DECLARE_BIT(N_BITS, OUT_PTR)                       \
-CCLI_PARSE_NEXT_ARG_DECLARE(uint##N_BITS##_t, OUT_PTR)                                          \
+static CCliActionReturn c_cli_parse_next_arg_uint##N_BITS##_t(                                  \
+        void* const restrict ctx, uint##N_BITS##_t* const restrict OUT_PTR)                     \
 {                                                                                               \
     CCliActionReturn res;                                                                       \
-    CCliDigit dig = {0};                                                                            \
+    CCliDigit dig = {0};                                                                        \
                                                                                                 \
     if ( !(res = c_cli_parse_next_arg_udig(ctx, UINT##N_BITS##_MAX, &dig)) )                    \
     {                                                                                           \
@@ -1245,10 +1219,11 @@ CCLI_PARSE_NEXT_ARG_DECLARE(uint##N_BITS##_t, OUT_PTR)                          
 }
 
 #define __CCLI_PARSE_NEXT_ARG_SIGNED_DIGIT_DECLARE_BIT(N_BITS, OUT_PTR)                         \
-CCLI_PARSE_NEXT_ARG_DECLARE(int##N_BITS##_t, OUT_PTR)                                           \
+static CCliActionReturn c_cli_parse_next_arg_int##N_BITS##_t(                                   \
+        void* const restrict ctx, int##N_BITS##_t* const restrict OUT_PTR)                      \
 {                                                                                               \
     CCliActionReturn res;                                                                       \
-    CCliDigit dig = {0};                                                                            \
+    CCliDigit dig = {0};                                                                        \
                                                                                                 \
     if ( !(res = c_cli_parse_next_arg_sdig(ctx, INT##N_BITS##_MIN, INT##N_BITS##_MAX, &dig)) )  \
     {                                                                                           \
@@ -1301,10 +1276,33 @@ CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void)
 #endif
 
 #ifdef CCLI_DEPLOY
+CCLI_PREFIX uint32_t c_cli_get_version(void)
+{
+    union{
+        struct
+        {
+            uint8_t patch;
+            uint8_t minor;
+            uint8_t major;
+        }complex;
+        uint32_t raw;
+    }conv = 
+    {
+        .complex = 
+        {
+            .major = CCLI_MAJOR,
+            .minor = CCLI_MINOR,
+            .patch = CCLI_PATCH,
+        },
+    };
+
+    return conv.raw;
+}
+
 CCLI_PREFIX bool c_cli_parse(
         const CCliArgDef* defs,
         const size_t n_defs,
-        struct CCliUserArgs* const restrict args,
+        CCliUserArgsInt* const restrict args,
         const int argc,
         char** argv,
         CCliDefaultSetter def_set)
