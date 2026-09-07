@@ -634,7 +634,7 @@
 
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 3U )
-#define CCLI_MINOR      ( (const uint32_t) 0U )
+#define CCLI_MINOR      ( (const uint32_t) 1U )
 #define CCLI_PATCH      ( (const uint32_t) 0U )
 
 //flag parsers
@@ -1567,7 +1567,7 @@ CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_bool(
     }
     else
     {
-        res = CCliActionMissingInput;
+        res = CCliActionInvalidInput;
     }
 
     return res;
