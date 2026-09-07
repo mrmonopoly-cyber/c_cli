@@ -635,7 +635,7 @@
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 1U )
 #define CCLI_MINOR      ( (const uint32_t) 2U )
-#define CCLI_PATCH      ( (const uint32_t) 0U )
+#define CCLI_PATCH      ( (const uint32_t) 1U )
 
 //flag parsers
 
@@ -726,7 +726,7 @@ typedef struct CCliParseCtx{
     char **argv;
 }CCliParseCtx;
 
-typedef union __DigitData
+typedef union __CCliDigitData
 {
     uint8_t u8;
     uint16_t u16;
@@ -737,7 +737,7 @@ typedef union __DigitData
     int16_t s16;
     int32_t s32;
     int64_t s64;
-}Digit;
+}CCliDigit;
 
 #endif // !CCLI_TYPES
 
@@ -795,13 +795,13 @@ c_cli_parse_next_arg_str(void* const restrict ctx, const char** out);
 CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_udig(
         void* const restrict ctx,
         const uint64_t max,
-        Digit* const restrict out);
+        CCliDigit* const restrict out);
 
 CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_sdig(
         void* const restrict ctx,
         const int64_t min,
         const int64_t max,
-        Digit* const restrict out);
+        CCliDigit* const restrict out);
 
 CCLI_PREFIX CCliActionReturn
 c_cli_parse_next_arg_bool(void* const restrict ctx, bool* const restrict out);
@@ -1234,7 +1234,7 @@ CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(__ignore_flag, args, ctx)
 CCLI_PARSE_NEXT_ARG_DECLARE(uint##N_BITS##_t, OUT_PTR)                                          \
 {                                                                                               \
     CCliActionReturn res;                                                                       \
-    Digit dig = {0};                                                                            \
+    CCliDigit dig = {0};                                                                            \
                                                                                                 \
     if ( !(res = c_cli_parse_next_arg_udig(ctx, UINT##N_BITS##_MAX, &dig)) )                    \
     {                                                                                           \
@@ -1248,7 +1248,7 @@ CCLI_PARSE_NEXT_ARG_DECLARE(uint##N_BITS##_t, OUT_PTR)                          
 CCLI_PARSE_NEXT_ARG_DECLARE(int##N_BITS##_t, OUT_PTR)                                           \
 {                                                                                               \
     CCliActionReturn res;                                                                       \
-    Digit dig = {0};                                                                            \
+    CCliDigit dig = {0};                                                                            \
                                                                                                 \
     if ( !(res = c_cli_parse_next_arg_sdig(ctx, INT##N_BITS##_MIN, INT##N_BITS##_MAX, &dig)) )  \
     {                                                                                           \
@@ -1464,7 +1464,7 @@ CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_str(void* const restrict ctx, 
 CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_udig(
         void* const restrict ctx,
         const uint64_t max,
-        Digit* const restrict out)
+        CCliDigit* const restrict out)
 {
     const char* raw_arg = c_cli_next_arg(ctx);
     uint64_t res = {0};
@@ -1502,7 +1502,7 @@ CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_sdig(
         void* const restrict ctx,
         const int64_t min,
         const int64_t max,
-        Digit* const restrict out)
+        CCliDigit* const restrict out)
 {
     const char* raw_arg = c_cli_next_arg(ctx);
     int64_t res = {0};
