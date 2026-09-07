@@ -633,7 +633,7 @@
 #define CCLI_NO_ARG {{NULL, 0}}
 
 //c_cli version
-#define CCLI_MAJOR      ( (const uint32_t) 1U )
+#define CCLI_MAJOR      ( (const uint32_t) 2U )
 #define CCLI_MINOR      ( (const uint32_t) 3U )
 #define CCLI_PATCH      ( (const uint32_t) 0U )
 
@@ -861,6 +861,7 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
         const char* const restrict input,
         const CCliArgDef* defs,
         const size_t n_defs,
+        bool *found_something,
         CCliUserArgsInt* const restrict args,
         CCliParseCtx* const restrict ctx
         );
@@ -1093,6 +1094,7 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
         const char* const restrict input,
         const CCliArgDef* defs,
         const size_t n_defs,
+        bool *found_something,
         CCliUserArgsInt* const restrict args,
         CCliParseCtx* const restrict ctx
         )
@@ -1120,6 +1122,7 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
                 if(act_res == CCliActionOK)
                 {
                     res = CCliCheckInputDefsRet_Found;
+                    *found_something = true;
                 }
                 else
                 {
@@ -1178,7 +1181,6 @@ CCLI_PREFIX const char* __c_cli_get_prog_name(const char* const restrict argv_0)
     return prog_name;
 }
 
-#ifdef CCLI_DEPLOY
 CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(verbose, args, ctx)
 {
     (void) ctx;
@@ -1194,7 +1196,6 @@ CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(help, args, ctx)
     return CCliActionOK;
 }
 #endif // !CCLI_FLAG_NO_HELP
-#endif //!CCLI_DEPLOY
 
 CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(__ignore_flag, args, ctx)
 {
@@ -1275,7 +1276,6 @@ CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void)
 }
 #endif
 
-#ifdef CCLI_DEPLOY
 CCLI_PREFIX uint32_t c_cli_get_version(void)
 {
     union{
@@ -1312,6 +1312,7 @@ CCLI_PREFIX bool c_cli_parse(
     const __CCliBaseDefInfo base_flags = __c_cli_get_base_flags();
 #endif
     const char* prog_name = __c_cli_get_prog_name(argv[0]);
+    bool found_something = false;
     CCliParseCtx ctx = {
         .attributes = 0,
         .i=NULL,
@@ -1324,15 +1325,19 @@ CCLI_PREFIX bool c_cli_parse(
         ctx.i = &i;
         input = argv[i];
 
-        switch (__c_cli_check_input_defs(input, defs, n_defs, args, &ctx))
+        if(defs)
         {
-            case CCliCheckInputDefsRet_Found: continue;
-            case CCliCheckInputDefsRet_NotFound: break;
-            case CCliCheckInputDefsRet_Error: return false;
+            switch (__c_cli_check_input_defs(input, defs, n_defs, &found_something, args, &ctx))
+            {
+                case CCliCheckInputDefsRet_Found: continue;
+                case CCliCheckInputDefsRet_NotFound: break;
+                case CCliCheckInputDefsRet_Error: return false;
+            }
         }
 
 #if !defined(CCLI_FLAG_NO_HELP) || !defined(CCLI_FLAG_NO_VERBOSE)
-        switch(__c_cli_check_input_defs(input, base_flags.addr, base_flags.size, args, &ctx))
+        switch(__c_cli_check_input_defs(
+                    input, base_flags.addr, base_flags.size, &found_something, args, &ctx))
         {
             case CCliCheckInputDefsRet_Found: continue;
             case CCliCheckInputDefsRet_NotFound: break;
@@ -1368,7 +1373,6 @@ CCLI_PREFIX bool c_cli_parse(
 
     return false;
 }
-#endif //!CCLI_DEPLOY
 
 CCLI_PREFIX const char* c_cli_arg_type_to_str(const CCliArgType arg_type)
 {
