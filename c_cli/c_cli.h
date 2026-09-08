@@ -593,7 +593,7 @@
 #define CCLI_ARRAYSIZE(ARR) (sizeof(ARR)/sizeof(ARR[0]))
 
 #ifndef CCLI_PREFIX
-#define CCLI_PREFIX static inline
+#define CCLI_PREFIX
 #endif // !CCLI_PREFIX
 
 #ifndef CCLI_ARG_LIST_SEPARATOR
@@ -623,8 +623,8 @@
 
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 3U )
-#define CCLI_MINOR      ( (const uint32_t) 1U )
-#define CCLI_PATCH      ( (const uint32_t) 3U )
+#define CCLI_MINOR      ( (const uint32_t) 2U )
+#define CCLI_PATCH      ( (const uint32_t) 2U )
 
 //flag parsers
 
@@ -633,7 +633,7 @@
 #define CCLI_PARSER_DECLARE_FULL(NAME, args, ctx)                                                 \
     CCliActionReturn CCLI_PARSER_NAME(NAME)(                                                      \
             CCliUserArgsInt* const restrict args,                                                 \
-            void* const restrict ctx)                                                             \
+            void* const restrict ctx)
 
 #define CCLI_PARSER_DECLARE(NAME) CCLI_PARSER_DECLARE_FULL(NAME, args, ctx)
 
@@ -794,14 +794,26 @@ c_cli_parse_next_arg_int32_t(void* const restrict ctx, int32_t* const restrict o
 CCLI_PREFIX CCliActionReturn
 c_cli_parse_next_arg_int64_t(void* const restrict ctx, int64_t* const restrict out);
 
-//static checks
+//=========================================static asserts========================================
 
-#if CCLI_ARG_LIST_SEPARATOR == ' '
-#error "CCLI_ARG_LIST_SEPARATOR cannot be a ' '"
+#if \
+    CCLI_ARG_LIST_SEPARATOR == ' '  || \
+    CCLI_ARG_LIST_SEPARATOR == '\0' || \
+    CCLI_ARG_LIST_SEPARATOR == '\n' || \
+    CCLI_ARG_LIST_SEPARATOR == '\r' 
+#error "invliad CCLI_ARG_LIST_SEPARATOR"
+#endif
+
+#if CCLI_CHARS_IN_TAB < 1
+#error "invalid CCLI_CHARS_IN_TAB"
+#endif
+
+#if CCLI_MAX_NUM_ARGS < 1
+#error "invalid CCLI_MAX_NUM_ARGS"
 #endif
 
 
-//C_CLI IMPLEMENTATION============================================================================
+//============================================C_CLI IMPLEMENTATION===============================
 
 #ifdef CCLI_IMPLEMENTATION
 
@@ -1189,7 +1201,7 @@ CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(help, args, ctx)
 #endif // !CCLI_FLAG_NO_HELP
 
 #define __CCLI_PARSE_NEXT_ARG_UNSIGNED_DIGIT_DECLARE_BIT(N_BITS, OUT_PTR)                       \
-static CCliActionReturn c_cli_parse_next_arg_uint##N_BITS##_t(                                  \
+CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_uint##N_BITS##_t(                             \
         void* const restrict ctx, uint##N_BITS##_t* const restrict OUT_PTR)                     \
 {                                                                                               \
     CCliActionReturn res;                                                                       \
@@ -1204,7 +1216,7 @@ static CCliActionReturn c_cli_parse_next_arg_uint##N_BITS##_t(                  
 }
 
 #define __CCLI_PARSE_NEXT_ARG_SIGNED_DIGIT_DECLARE_BIT(N_BITS, OUT_PTR)                         \
-static CCliActionReturn c_cli_parse_next_arg_int##N_BITS##_t(                                   \
+CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_int##N_BITS##_t(                              \
         void* const restrict ctx, int##N_BITS##_t* const restrict OUT_PTR)                      \
 {                                                                                               \
     CCliActionReturn res;                                                                       \
@@ -1228,7 +1240,8 @@ __CCLI_PARSE_NEXT_ARG_SIGNED_DIGIT_DECLARE_BIT(16, out)
 __CCLI_PARSE_NEXT_ARG_SIGNED_DIGIT_DECLARE_BIT(32, out)
 __CCLI_PARSE_NEXT_ARG_SIGNED_DIGIT_DECLARE_BIT(64, out)
 
-#undef __CCLI_PARSE_NEXT_ARG_DIGIT_DECLARE
+#undef __CCLI_PARSE_NEXT_ARG_UNSIGNED_DIGIT_DECLARE_BIT
+#undef __CCLI_PARSE_NEXT_ARG_SIGNED_DIGIT_DECLARE_BIT
 
 #if !defined(CCLI_FLAG_NO_HELP) || !defined(CCLI_FLAG_NO_VERBOSE)
 CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void)
@@ -1279,6 +1292,9 @@ CCLI_PREFIX bool c_cli_parse(
 #if !defined(CCLI_FLAG_NO_HELP) || !defined(CCLI_FLAG_NO_VERBOSE)
     const __CCliBaseDefInfo base_flags = __c_cli_get_base_flags();
 #endif
+
+    if ( argc < 1 || !argv ) return false;
+
     const char* prog_name = __c_cli_get_prog_name(argv[0]);
     bool found_something = false;
     CCliParseCtx ctx = {
@@ -1287,6 +1303,7 @@ CCLI_PREFIX bool c_cli_parse(
         .argc = argc,
         .argv = argv,
     };
+
 
     for(int i=1;i <argc; i++)
     {
@@ -1338,7 +1355,7 @@ CCLI_PREFIX bool c_cli_parse(
 
 CCLI_PREFIX const char* c_cli_arg_type_to_str(const CCliArgType arg_type)
 {
-    const char* const restrict c_cli_args_types[__Count__CCliArg] =
+    static const char* const restrict c_cli_args_types[__Count__CCliArg] =
     {
         [CCliArgVoid]   = "void",
 
@@ -1390,7 +1407,7 @@ CCLI_PREFIX const char* c_cli_next_arg(CCliParseCtx* const restrict ctx)
         CCLI_ARG_LIST_SEPARATOR,
     };
 
-    if(*p_ctx->i < p_ctx->argc)
+    if(*p_ctx->i + 1 < p_ctx->argc)
     {
         res = p_ctx->argv[++(*p_ctx->i)];
         ctx->list_continue = false;
