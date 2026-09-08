@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 }
 
 
-#define CCLI_DEPLOY
+#define CCLI_IMPLEMENTATION
 #include "c_cli.h"
 
 CCLI_PARSER_DECLARE(very_long_flag);

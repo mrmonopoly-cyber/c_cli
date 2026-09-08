@@ -7,7 +7,7 @@ typedef struct CCliUserArgs{
     bool verbose;
 }Args;
 
-#define CCLI_DEPLOY
+#define CCLI_IMPLEMENTATION
 #include "c_cli.h"
 
 #define TEMPLATE_DIG_TEST(T) struct {T min; T max; T out_min; T out_max;}

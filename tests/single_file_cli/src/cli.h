@@ -53,7 +53,7 @@ static const CCliArgDef cli_flags[] =
     },
 };
 
-#define CCLI_DEPLOY
+#define CCLI_IMPLEMENTATION
 #include "c_cli.h"
 
 static void default_args(CCliUserArgs* const restrict args)

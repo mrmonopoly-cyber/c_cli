@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
 }
 
 
-#define CCLI_DEPLOY
+#define CCLI_IMPLEMENTATION
 #include "c_cli.h"
 
 static inline bool parse_args(Args* args, const int argc, char** argv)

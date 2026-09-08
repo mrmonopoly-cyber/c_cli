@@ -368,7 +368,7 @@
  *
  * By default c_cli.h can be included multiple times without causing any harm.
  *
- * By defining CCLI_DEPLOY before including c_cli.h the library will deploy the 
+ * By defining CCLI_IMPLEMENTATION before including c_cli.h the library will deploy the 
  * main logic of the library.
  *
  * THIS CAN BE DONE ONLY ONCE FOR PROGRAM OTHERWISE A DOUBLE DEFINITION ERROR WILL OCCUR.
@@ -532,7 +532,7 @@
  *     },
  * };
  * 
- * #define CCLI_DEPLOY
+ * #define CCLI_IMPLEMENTATION
  * #include "c_cli.h"
  * 
  * static void default_args(CCliUserArgs* const restrict args)
@@ -600,10 +600,6 @@
 #define CCLI_ARG_LIST_SEPARATOR ','
 #endif // CCLI_ARG_LIST_SEPARATOR
 
-#ifndef CCLI_MAX_LEN_PROG_NAME
-#define CCLI_MAX_LEN_PROG_NAME 64
-#endif // !CCLI_MAX_LEN_PROG_NAME
-
 #ifndef CCLI_CHARS_IN_TAB
 #define CCLI_CHARS_IN_TAB 8
 #endif // !CCLI_CHARS_IN_TAB
@@ -612,17 +608,10 @@
 #define CCLI_MAX_NUM_ARGS 8
 #endif // !CCLI_MAX_NUM_ARGS
 
-#ifndef CCLI_SLASH
-#define CCLI_SLASH '/'
-#endif // !CCLI_SLASH
+#define CCLI_END_LINE "\n"
 
-#define CCLI_END_LINE "\n\r"
-
-#define CCLI_NO_TAB ""
 #define CCLI_1_TAB "\t"
 #define CCLI_2_TAB CCLI_1_TAB CCLI_1_TAB
-#define CCLI_3_TAB CCLI_1_TAB CCLI_2_TAB
-#define CCLI_4_TAB CCLI_1_TAB CCLI_3_TAB
 
 //flags names
 #define CCLI_LONG_FLAG(NAME) "--"#NAME
@@ -635,7 +624,7 @@
 //c_cli version
 #define CCLI_MAJOR      ( (const uint32_t) 3U )
 #define CCLI_MINOR      ( (const uint32_t) 1U )
-#define CCLI_PATCH      ( (const uint32_t) 2U )
+#define CCLI_PATCH      ( (const uint32_t) 3U )
 
 //flag parsers
 
@@ -703,16 +692,16 @@ typedef void
 
 typedef struct{
     const char* name;
-    const CCliArgType type;
+    CCliArgType type;
 }CCliArgSpec;
 
 typedef struct{
-    const CCliFlagAttribute_type f_attributes;
+    CCliFlagAttribute_type f_attributes;
     const char* f_long;
     const char* f_short;
     const char* f_description;
-    const CCliParser f_parser;
-    const CCliArgSpec f_args[CCLI_MAX_NUM_ARGS];
+    CCliParser f_parser;
+    CCliArgSpec f_args[CCLI_MAX_NUM_ARGS];
 }CCliArgDef;
 
 typedef struct CCliParseCtx{
@@ -761,6 +750,9 @@ CCLI_PREFIX const char* c_cli_str_arg_to_str(const char* const restrict arg);
 CCLI_PREFIX const char* c_cli_next_arg(CCliParseCtx* const restrict ctx);
 
 //parsing specialized utility functions
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_next_arg_char(void* const restrict ctx, char* const restrict out);
+
 CCLI_PREFIX CCliActionReturn
 c_cli_parse_next_arg_str(void* const restrict ctx, const char** out);
 
@@ -811,9 +803,9 @@ c_cli_parse_next_arg_int64_t(void* const restrict ctx, int64_t* const restrict o
 
 //C_CLI IMPLEMENTATION============================================================================
 
-#ifdef CCLI_DEPLOY
+#ifdef CCLI_IMPLEMENTATION
 
-// CCLI_DEPLOY
+// CCLI_IMPLEMENTATION
 //types
 typedef enum {
     CCliCheckInputDefsRet_Found =0,
@@ -927,27 +919,27 @@ CCLI_PREFIX size_t __c_cli_fprint_all_args(
         {
             if(empty)
             {
-                written += fprintf(dst, "[");
+                written += (size_t) fprintf(dst, "[");
                 empty = false;
             }
 
             if(i>0)
             {
-                written += fprintf(dst, ", ");
+                written += (size_t) fprintf(dst, ", ");
             }
 
-            written += fprintf(dst, "%s:%s", arg->name, c_cli_arg_type_to_str(arg->type));
+            written += (size_t) fprintf(dst, "%s:%s", arg->name, c_cli_arg_type_to_str(arg->type));
         }
     }
 
     if(!empty)
     {
-        written += fprintf(dst, "]");
+        written += (size_t) fprintf(dst, "]");
     }
 
     if(attributes & CCliFlagAttribute_ArgsList)
     {
-        written += fprintf(dst, "...");
+        written += (size_t) fprintf(dst, "...");
     }
 
     return written;
@@ -999,12 +991,12 @@ CCLI_PREFIX void __c_cli_find_correct_align(
             args_len += strlen("...");
         }
 
-        f_len = defs[i].f_short ? strlen(defs[i].f_short) : 0;
+        f_len = defs[i].f_short ? strlen(defs[i].f_short) + 1 : 0;
         tot_len = args_len + f_len;
         n_tabs = (tot_len / CCLI_CHARS_IN_TAB) + ((tot_len % CCLI_CHARS_IN_TAB) > 0);
         if(n_tabs > align->s_to_l) align->s_to_l = n_tabs;
 
-        f_len = defs[i].f_long ? strlen(defs[i].f_long) : 0;
+        f_len = defs[i].f_long ? strlen(defs[i].f_long) + 1 : 0;
         tot_len = args_len + f_len;
         n_tabs = (tot_len / CCLI_CHARS_IN_TAB) + ((tot_len % CCLI_CHARS_IN_TAB) > 0);
         if(n_tabs > align->l_to_d) align->l_to_d = n_tabs;
@@ -1033,13 +1025,13 @@ CCLI_PREFIX void __c_cli_print_defs_help(
 
         if(def->f_long)
         {
-            written += fprintf(out, "%s ", def->f_long);                                // --help
-            written += __c_cli_fprint_all_args(def->f_args, def->f_attributes, out);    // [...]
+            written += (size_t) fprintf(out, "%s ", def->f_long);                                // --help
+            written += (size_t) __c_cli_fprint_all_args(def->f_args, def->f_attributes, out);    // [...]
         }
 
         while(written < to_write)
         {
-            written += fprintf(out, " ");                                               // long padding
+            written += (size_t) fprintf(out, " ");                                               // long padding
         }
 
         written =0;
@@ -1049,18 +1041,18 @@ CCLI_PREFIX void __c_cli_print_defs_help(
 
         if(def->f_short)
         {
-            written += fprintf(out, "%s ", def->f_short);                               // -h
-            written += __c_cli_fprint_all_args(def->f_args, def->f_attributes, out);    // [...]
+            written += (size_t) fprintf(out, "%s ", def->f_short);                               // -h
+            written += (size_t) __c_cli_fprint_all_args(def->f_args, def->f_attributes, out);    // [...]
         }
 
         while(written < to_write)
         {
-            written += fprintf(out, " ");                                               // short padding
+            written += (size_t) fprintf(out, " ");                                               // short padding
         }
 
         if(def->f_description)
         {
-            fprintf(out, "%s", def->f_description);                                     // description
+            fprintf(out, "%s", def->f_description);                                             // description
         }
 
         fprintf(out, CCLI_END_LINE);
@@ -1090,9 +1082,18 @@ CCLI_PREFIX CCliCheckInputDefsRet __c_cli_check_input_defs(
 
         const char* safe_f_long = user_def->f_long ? user_def->f_long : "";
         const char* safe_f_short = user_def->f_short ? user_def->f_short : "";
-        const bool two_flags = strcmp(safe_f_long, "") && strcmp(safe_f_short, "");
 
-        if( !strcmp(safe_f_long, input) || !strcmp(safe_f_short, input) )
+        const bool matches_long =
+            user_def->f_long && strcmp(user_def->f_long, input) == 0;
+
+        const bool matches_short =
+            user_def->f_short && strcmp(user_def->f_short, input) == 0;
+
+        const bool two_flags =
+            user_def->f_long && user_def->f_short;
+
+
+        if( matches_long || matches_short )
         {
 
             assert(user_def->f_parser);
@@ -1149,17 +1150,21 @@ end:
 CCLI_PREFIX const char* __c_cli_get_prog_name(const char* const restrict argv_0)
 {
     const char* res = argv_0 ? argv_0 : "c_cli";
-    if(argv_0)
+    if( argv_0 )
     {
         const size_t argv_0_len = strlen(argv_0);
         const char* p_prog_name = argv_0_len > 0 ? &argv_0[argv_0_len-1] : "c_cli";
 
-        while(p_prog_name > argv_0 && *p_prog_name != CCLI_SLASH)
+        while(
+                p_prog_name > argv_0 &&
+                *p_prog_name != '/' &&
+                *p_prog_name != '\\'
+             )
         {
             p_prog_name--;
         }
 
-        if(*p_prog_name == CCLI_SLASH) p_prog_name++;
+        if( *p_prog_name == '/' || *p_prog_name == '\\' ) p_prog_name++;
 
         res = p_prog_name;
     }
@@ -1182,13 +1187,6 @@ CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(help, args, ctx)
     return CCliActionOK;
 }
 #endif // !CCLI_FLAG_NO_HELP
-
-CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(__ignore_flag, args, ctx)
-{
-    (void) args;
-    (void) ctx;
-    return CCliActionOK;
-}
 
 #define __CCLI_PARSE_NEXT_ARG_UNSIGNED_DIGIT_DECLARE_BIT(N_BITS, OUT_PTR)                       \
 static CCliActionReturn c_cli_parse_next_arg_uint##N_BITS##_t(                                  \
@@ -1264,8 +1262,9 @@ CCLI_PREFIX __CCliBaseDefInfo __c_cli_get_base_flags(void)
 
 CCLI_PREFIX uint32_t c_cli_get_version(void)
 {
-    return
-        (uint32_t) ( (CCLI_MAJOR << (2 * 8)) | (CCLI_MINOR << (1 * 8) | (CCLI_PATCH << (0 * 8))) );
+    return  (CCLI_MAJOR << 16)  |
+            (CCLI_MINOR << 8)   |
+            CCLI_PATCH;
 }
 
 CCLI_PREFIX bool c_cli_parse(
@@ -1327,7 +1326,7 @@ CCLI_PREFIX bool c_cli_parse(
 
     if(def_set)
     {
-        printf("%s: no arguments provide. Applying default values\n", prog_name);
+        printf("%s: no arguments provided. Applying default values\n", prog_name);
         def_set(args);
         return true;
     }
@@ -1413,6 +1412,22 @@ CCLI_PREFIX const char* c_cli_next_arg(CCliParseCtx* const restrict ctx)
 
 //parsing specialized utility functions
 
+CCLI_PREFIX CCliActionReturn
+c_cli_parse_next_arg_char(void* const restrict ctx, char* const restrict out)
+{
+    const char* raw_arg = c_cli_next_arg(ctx);
+
+    if( raw_arg )
+    {
+        if ( raw_arg[0] == '\0' || raw_arg[1] != '\0' ) return CCliActionInvalidInput;
+
+        *out = *raw_arg;
+        return CCliActionOK;
+    }
+
+    return CCliActionMissingInput;
+}
+
 CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_str(void* const restrict ctx, const char** out)
 {
     const char* raw_arg = c_cli_next_arg(ctx);
@@ -1481,6 +1496,7 @@ CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_sdig(
         raw_arg++;
     }
 
+    if(!*raw_arg) return CCliActionMissingInput;
 
     while(*raw_arg)
     {
@@ -1542,4 +1558,4 @@ CCLI_PREFIX CCliActionReturn c_cli_parse_next_arg_bool(
     return res;
 }
 
-#endif // CCLI_DEPLOY
+#endif // CCLI_IMPLEMENTATION
