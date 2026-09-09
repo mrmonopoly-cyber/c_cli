@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2026 Alberto Damo. All Rights Reserved.
+ * author: Alberto Damo
+ * repository: https://github.com/mrmonopoly-cyber/c_cli.git
+ *
  * GNU GENERAL PUBLIC LICENSE
  *                        Version 2, June 1991
  * 
@@ -351,245 +353,230 @@
 #include <stdint.h>
 
 /*
- * DESCRIPTION:
- *
- * C_Cli is header only heapless typed cli library written in C99.
- * It's designed to be easily integrated in pre existing Cli objects and with pre existing 
- * flag parsing logic.
- * The library does not require the user to expose it's usage in the main user interface.
- * ( MyAwesomeCli.h does not have to contain #include "c_cli.h" )
- * With that the user can define a generic interface for its cli and later change the 
- * implementation as he/she fits.
- *
- * it works by including the c_cli.h header two times:
- * - the first time to configure the environment
- * - the second time to deploy the library logic after that the user declare all the 
- *   necessary definitions.
- *
- * By default c_cli.h can be included multiple times without causing any harm.
- *
- * By defining CCLI_IMPLEMENTATION before including c_cli.h the library will deploy the 
- * main logic of the library.
- *
- * THIS CAN BE DONE ONLY ONCE FOR PROGRAM OTHERWISE A DOUBLE DEFINITION ERROR WILL OCCUR.
- *
- *
- * FEATURES:
- *
- * Below a list of a few of the available features out of the box:
- * - heapless                  : no heap allocations
- * - auto alignement           : the cli will be automatically aligned based on the flags that compose the cli
- * - typed arg flags           : each argument of each flag has a type which is checked by the library
- * - long and short flag       : each flag has a long and a short version
- * - base flags                : --help/-h, --verbose/-v are already defined by the library
- * - user default flag         : optional possibility to define custom default flags.
- *                               Default is none and triggers printing help on stderr.
- * - flag attributes           : Allow the user to define specific characteristic of each flag.
- *                               Look at CCliFlagAttribute
- * - name detection            : the cli's name will be equivalent of the program that is using it
- * - invalid input flag        : invalid user flags are auto detected and
- *                               printed as warning to the screen
- *
- * USAGE:
- * To use the library you need to manually define the following elements:
- * 
- * - an option object with type struct CCliUserArgs
- * - an array of CCliArgDef which tells the library the elements which defines the cli
- * - a set of functions, required in the definition an CCliArgDef to handle each flag
- *
- * CCliUserArgs will contains all the output values and it will populated by the library during
- * parsing.
- *
- * IT MUST CONTAIN AT LEAST (position is irrelevant):
- * - bool verbose;
- * - bool help;
- *
- * below an example:
- * 
- * typedef struct CCliUserArgs{
- *     bool verbose;
- *     bool help;
- *     const char* path;
- *     struct{
- *         const char* name;
- *         uint8_t arg;
- *     }test;
- * }MyCliArgs;
- *
- * CCliArgDef is a flag (short and long) of your cli.
- * Each element tells the library:
- *  - the name of the flag to parse (long and short)
- *  - the list of args the flags expected (can be EMPTY)
- *  - a description of the flag
- *  - and a function pointer to user defined parser for that flag
- *  
- *  below a few examples:
- *
- *      //--help, -h
- *      {
- *          .f_long = CCLI_LONG_FLAG(help),         // long version of the flag:--help
- *          .f_short = CCLI_SHORT_FLAG(h),          // short version of the flag: -h
- *          .f_args = CCLI_NO_ARG,                  // no args expected
- *          .f_description = "print this help",     // description of the flag
- *          .f_parser = CCLI_PARSER_NAME(help),     // function pointer to parser of the help flag
- *      },
- *
- *      //--test [name, arg], -t [name, arg]
- *      {
- *          .f_long = CCLI_LONG_FLAG(test),         // long version of the flag: --test
- *          .f_short = CCLI_SHORT_FLAG(t),          // short version of the flag: -t
- *          .f_args =                               // test expects two arguments
- *          {
- *              CCLI_NEW_ARG(name, CCliArgStr),     // first argument called name of type string
- *              CCLI_NEW_ARG(arg, CCliArgU8)        // second argument called arg of type uint8_t
- *          },
- *          .f_description = "run the test [name] with arg [arg]", //description of the flag
- *          .f_parser = CCLI_PARSER_NAME(test),     // function pointer to parser of the test flag
- *      },
- *
- *
- * As mentioned the parser has to be user defined and have to respect signature of CCliParser.
- *
- * Below a few examples:
- * CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(verbose, args, ctx)
- * {
- *     (void) ctx;
- *     args->verbose = true;
- *     return CCliActionOK;
- * }
- *
- * CLI_PREFIX CCLI_PARSER_DECLARE_FULL(test, args, ctx)
- * {
- *     CCliActionReturn res;
- * 
- *     if(
- *             (res = c_cli_parse_next_arg_str(ctx, &args->test.name)) != CCliActionOK ||
- *             (res = c_cli_parse_next_arg_uint8_t(ctx, &args->test.arg)) != CCliActionOK
- *       )
- *     {
- *         return res;
- *     }
- * 
- *     return res;
- * }
- *
- *
- * Combining all things together:
- *
- *
- * MyAwesomeCli.h:
- * #pragma once
- * 
- * #include <stdbool.h>
- * #include <stdint.h>
- * 
- * typedef struct CCliUserArgs{
- *     bool verbose;
- *     bool help;
- *     const char* path;
- *     struct{
- *         const char* name;
- *         uint8_t arg;
- *     }test;
- * }CCliUserArgs;
- * 
- * int cli_parse(CCliUserArgs* const restrict args, int argc, char** argv);
- * void cli_print_args(const CCliUserArgs* const restrict args);
- *
- * //========================================================================================
- *
- * MyAwesomeCli.c:
- * #include "c_cli.h"
- * 
- * #define CLI_PREFIX static inline
- * 
- * CLI_PREFIX CCLI_PARSER_DECLARE(path);
- * CLI_PREFIX CCLI_PARSER_DECLARE(test);
- * 
- * static const CCliArgDef cli_flags[] =
- * {
- *     {//--file [path], -f [path]
- *         .f_long = CCLI_LONG_FLAG(path),
- *         .f_short = CCLI_SHORT_FLAG(p),
- *         .f_args =
- *         {
- *             CCLI_NEW_ARG(path, CCliArgStr),
- *         },
- *         .f_description = "use file from path",
- *         .f_parser = CCLI_PARSER_NAME(path),
- *     },
- * 
- *     {//--test [name, arg], -t [name, arg]
- *         .f_long = CCLI_LONG_FLAG(test),
- *         .f_short = CCLI_SHORT_FLAG(t),
- *         .f_args =
- *         {
- *             CCLI_NEW_ARG(name, CCliArgStr),
- *             CCLI_NEW_ARG(arg, CCliArgU8)
- *         },
- *         .f_description = "run the test [name] with arg [arg]",
- *         .f_parser = CCLI_PARSER_NAME(test),
- *     },
- * };
- * 
- * #define CCLI_IMPLEMENTATION
- * #include "c_cli.h"
- * 
- * static void default_args(CCliUserArgs* const restrict args)
- * {
- *     args->path = "default path";
- *     args->test.name = "default test";
- *     args->test.arg = 69;
- * }
- * 
- * int cli_parse(CCliUserArgs* const restrict args, int argc, char** argv)
- * {
- *     return c_cli_parse(
- *             cli_flags,
- *             sizeof(cli_flags)/sizeof(cli_flags[0]),
- *             args,
- *             argc,
- *             argv,
- *             default_args);
- * }
- * 
- * void cli_print_args(const CCliUserArgs* const restrict args)
- * {
- *     printf("verbose: %s\n", c_cli_bool_to_str(args->verbose));
- *     printf("help: %s\n", c_cli_bool_to_str(args->help));
- *     printf("path: %s\n", c_cli_str_arg_to_str(args->path));
- *     printf("test: [name:%s, arg:%u]\n", c_cli_str_arg_to_str(args->test.name), args->test.arg);
- * }
- * 
- * CLI_PREFIX CCLI_PARSER_DECLARE_FULL(path, args, ctx)
- * {
- *     return c_cli_parse_next_arg_str(ctx, &args->path);
- * }
- * 
- * CLI_PREFIX CCLI_PARSER_DECLARE_FULL(test, args, ctx)
- * {
- *     CCliActionReturn res;
- * 
- *     if(
- *             (res = c_cli_parse_next_arg_str(ctx, &args->test.name)) != CCliActionOK ||
- *             (res = c_cli_parse_next_arg_uint8_t(ctx, &args->test.arg)) != CCliActionOK
- *       )
- *     {
- *         return res;
- *     }
- * 
- *     return res;
- * }
- * 
- *
- * It's also possible to create a header only cli.h pretty easily by adding an
- * #ifdef MYAWESOMECLI_IMPLEMENTATION right before the first include of c_cli.h which determines
- * the start of the implementation logic
+
+* C_CLI
+* =====
+*
+* A header-only, heapless, typed command-line interface library for C99.
+*
+* C_Cli is designed to be integrated into an existing CLI implementation
+* rather than forcing a complete CLI architecture onto the application.
+*
+* The library provides:
+*
+* * no dynamic memory allocation
+* * typed command-line arguments
+* * long and short flag names
+* * automatic help formatting and alignment
+* * built-in --help/-h and --verbose/-v flags
+* * optional default arguments
+* * flag attributes, including argument lists
+* * input validation for supported argument types
+*
+*
+* QUICK START
+* ===========
+*
+* C_Cli requires the application to provide three things:
+*
+* 1. a user argument structure
+* 2. an array of CCliArgDef describing the supported flags
+* 3. one parser function for each flag
+*
+*
+* 1. USER ARGUMENTS
+* ---
+*
+* Define the structure populated by the CLI parsers.
+*
+* Example:
+* 
+*  typedef struct CCliUserArgs
+*  {
+*      bool verbose;
+*      bool help;
+*      const char* path;
+*      uint8_t value;
+*  } CCliUserArgs;
+* 
+* When the built-in help and verbose flags are enabled, the structure must
+* contain the corresponding members.
+*
+*
+* 2. FLAG DEFINITIONS
+* ---
+*
+* Each flag is described by a CCliArgDef.
+*
+* Example:
+*
+* static const CCliArgDef cli_flags[] =
+* {
+*     {
+*         .f_long = CCLI_LONG_FLAG(file),
+*         .f_short = CCLI_SHORT_FLAG(f),
+*         .f_args =
+*         {
+*             CCLI_NEW_ARG(path, CCliArgStr),
+*         },
+*         .f_description = "use file from path",
+*         .f_parser = CCLI_PARSER_NAME(file),
+*     },
+* };
+*
+* CCLI_NO_ARG is used when a flag does not accept arguments.
+*
+* Arguments are described in order. If a flag accepts arguments, the
+* definitions occupy consecutive entries starting from f_args[0].
+*
+*
+* 3. FLAG PARSERS
+* ---
+*
+* Each flag has a user-defined parser. The parser receives the user argument
+* structure and a parsing context.
+*
+* Example:
+* 
+*  CCLI_PREFIX CCLI_PARSER_DECLARE_FULL(file, args, ctx)
+*  {
+*      return c_cli_parse_next_arg_str(ctx, &args->path);
+*  }
+* 
+* Typed parsing functions are available for the supported argument types.
+*
+*
+* 4. IMPLEMENTATION
+* ---
+*
+* The header is included once to make the declarations available and once
+* with CCLI_IMPLEMENTATION defined to deploy the implementation.
+*
+* The implementation must be deployed exactly once in the program.
+*
+* Example:
+* 
+*  #include "c_cli.h"
+*   --- user definitions and flag parsers ---
+*  #define CCLI_IMPLEMENTATION
+*  #include "c_cli.h"
+*
+* 5. PARSING
+* ---
+*
+* Call c_cli_parse() with the flag definitions, user argument structure,
+* argc/argv and an optional default setter.
+*
+* Example:
+*
+*  c_cli_parse(cli_flags, CCLI_ARRAYSIZE(cli_flags), &args, argc, argv, default_args);
+*
+* ARGUMENT TYPES
+* ==============
+*
+* C_Cli supports the following argument types:
+*
+* * CCliArgBool
+* * CCliArgChar
+* * CCliArgStr
+* * CCliArgU8
+* * CCliArgU16
+* * CCliArgU32
+* * CCliArgU64
+* * CCliArgS8
+* * CCliArgS16
+* * CCliArgS32
+* * CCliArgS64
+*
+* Numeric arguments are parsed as decimal values and are checked against
+* the limits of their destination type.
+*
+*
+* FLAG ATTRIBUTES
+* ===============
+*
+* CCliFlagAttribute_None
+*
+* Normal flag behaviour.
+*
+* CCliFlagAttribute_ArgsList
+*
+* Allows the flag to consume a continuous sequence of arguments separated
+* by CCLI_ARG_LIST_SEPARATOR.
+*
+* Example:
+*
+* --include file1 , file2 , file3
+*
+* BUILT-IN FLAGS
+* =============
+*
+* Unless disabled at compile time, C_Cli provides:
+*
+* --help/-h
+*     Print the generated help and stop normal parsing.
+*
+* --verbose/-v
+*     Enable the verbose option in the user argument structure.
+*
+* Built-in flags can be disabled with:
+*
+* * CCLI_FLAG_NO_HELP
+* * CCLI_FLAG_NO_VERBOSE
+*
+* DEFAULT ARGUMENTS
+* =================
+*
+* c_cli_parse() can receive a CCliDefaultSetter.
+*
+* Defaults are applied when no recognized user flags are found.
+* Passing NULL disables default initialization.
+*
+* CONFIGURATION
+* =============
+*
+* The following configuration macros can be overridden before including
+* c_cli.h:
+*
+*  CCLI_PREFIX
+*      Prefix applied to public API declarations and definitions.
+* 
+*  CCLI_ARG_LIST_SEPARATOR
+*      Character used to separate arguments belonging to an ArgsList flag.
+* 
+*  CCLI_CHARS_IN_TAB
+*      Number of character positions represented by one tab when formatting
+*      help output.
+* 
+*  CCLI_MAX_NUM_ARGS
+*      Maximum number of arguments supported by a single flag.
+*
+* INTEGRATION MODEL
+* =================
+*
+* C_Cli does not require the application's public CLI interface to expose
+* this library.
+*
+* An application can keep its own CLI abstraction and use C_Cli only inside
+* its implementation.
+*
+* This makes it possible to replace or modify the CLI implementation without
+* changing the application's public interface.
+*
+* IMPLEMENTATION NOTES
+* ====================
+*
+* C_Cli is heapless: it does not perform dynamic memory allocation.
+*
+* Parsed string arguments point directly into the original argv storage.
+* The lifetime of these strings is therefore tied to the argv data supplied
+* to c_cli_parse().
 */
 
-//public API ============================================================================
 
-//macros
+//============================================public API ========================================
+
+//============================================macros=============================================
 #define CCLI_ARRAYSIZE(ARR) (sizeof(ARR)/sizeof(ARR[0]))
 
 #ifndef CCLI_PREFIX
@@ -637,7 +624,7 @@
 
 #define CCLI_PARSER_DECLARE(NAME) CCLI_PARSER_DECLARE_FULL(NAME, args, ctx)
 
-//types
+//================================================types=========================================
 
 #ifndef CCLI_TYPES
 #define CCLI_TYPES
@@ -665,9 +652,9 @@ typedef enum{
 
 typedef enum
 {
-    CCliActionOK = 0,
-    CCliActionMissingInput,
-    CCliActionInvalidInput,
+    CCliActionOK = 0,           /* The argument was successfully parsed. */
+    CCliActionMissingInput,     /* The expected argument was not present. */
+    CCliActionInvalidInput,     /* An argument was present but could not be parsed as the requested type. */
 }CCliActionReturn;
 
 typedef uint32_t CCliFlagAttribute_type;
@@ -727,7 +714,7 @@ typedef union __CCliDigitData
 
 #endif // !CCLI_TYPES
 
-//declarations
+//=============================================declarations=====================================
 
 CCLI_PREFIX uint32_t c_cli_get_version(void);
 
