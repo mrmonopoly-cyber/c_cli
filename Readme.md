@@ -2,42 +2,48 @@
 
 ## Description
 
-> [!IMPORTANT]
-> A detailed description is written in [c_cli.h](https://github.com/mrmonopoly-cyber/c_cli/blob/master/c_cli/c_cli.h).
+C_Cli is a **header-only, heapless, typed CLI library written in C99**.
 
-C_Cli is header only heapless typed cli library written in C99.
-It's designed to be easily integrated in pre existing Cli objects and with pre existing 
-flag parsing logic.
+It is designed to be easily integrated into **pre-existing CLI objects and flag parsing logic**, without requiring a complete rewrite of the existing CLI implementation.
+
+> [!IMPORTANT]
+> The detailed API reference and library documentation are available in [`c_cli.h`](https://github.com/mrmonopoly-cyber/c_cli/blob/master/c_cli/c_cli.h).
 
 ## Features
 
-> [!IMPORTANT]
-> A detailed lists of features is written in [c_cli.h](https://github.com/mrmonopoly-cyber/c_cli/blob/master/c_cli/c_cli.h).
+The following features are available out of the box:
 
-Below a list of a few of the available features out of the box:
-- heapless                  : no heap allocations
-- auto alignement           : the cli will be automatically aligned based on the flags that compose the cli
-- typed arg flags           : each argument of each flag has a type which is checked by the library
-- long and short flag       : each flag has a long and a short version
-- base flags                : --help/-h, --verbose/-v are already defined by the library
-- user default flag         : optional possibility to define custom default flags.
-                              Default is none and triggers printing help on stderr.
-- name detection            : the cli's name will be equivalent of the program that is using it
-- invalid input flag        : invalid user flags are auto detected and
-                              printed as warning to the screen
+* **Heapless** — no dynamic memory allocation.
+* **Automatic alignment** — CLI help output is automatically aligned based on the defined flags.
+* **Typed arguments** — each flag argument has an associated type that is validated by the library.
+* **Long and short flags** — flags can have both long and short forms.
+* **Built-in flags** — `--help/-h` and `--verbose/-v` are provided by the library.
+* **Default flags** — optionally define custom default behavior when no recognized user flags are provided.
+* **Program name detection** — the CLI name is automatically detected from the program invocation.
+* **Invalid flag detection** — unknown flags are automatically detected and reported as warnings.
+* **Argument lists** — flags can accept comma-separated argument lists.
+
+> [!IMPORTANT]
+> The complete list of features and their configuration options is documented in [`c_cli.h`](https://github.com/mrmonopoly-cyber/c_cli/blob/master/c_cli/c_cli.h).
 
 ## Usage
 
+C_Cli is designed to be integrated into an existing CLI implementation.
+
+To use the library, you need to define:
+
+* a user argument structure of type `CCliUserArgs`;
+* an array of `CCliArgDef` describing the CLI flags and their arguments;
+* parser functions used by the flag definitions to process their arguments.
+
+The library is then integrated by including `c_cli.h` once for the declarations and configuration, and once with `CCLI_IMPLEMENTATION` defined to deploy the implementation.
+
 > [!IMPORTANT]
-> A detailed guide on how to use the library features is written in [c_cli.h](https://github.com/mrmonopoly-cyber/c_cli/blob/master/c_cli/c_cli.h).
-
-To use the library you need to manually define the following elements:
-
-- an option object with type struct CCliUserArgs
-- an array of CCliArgDef which tells the library the elements which defines the cli
-- a set of functions, required in the definition an CCliArgDef to handle each flag
+> The detailed usage guide and API documentation are available in [`c_cli.h`](https://github.com/mrmonopoly-cyber/c_cli/blob/master/c_cli/c_cli.h).
 
 ## Examples
 
-Examples are available in the [tests](https://github.com/mrmonopoly-cyber/c_cli/tree/master/tests) directory
-and in the main header [c_cli.h](https://github.com/mrmonopoly-cyber/c_cli/blob/master/c_cli/c_cli.h)
+Complete examples are available in the [`tests`](https://github.com/mrmonopoly-cyber/c_cli/tree/master/tests) directory.
+
+The main header [`c_cli.h`](https://github.com/mrmonopoly-cyber/c_cli/blob/master/c_cli/c_cli.h) also contains usage examples and API documentation.
+
